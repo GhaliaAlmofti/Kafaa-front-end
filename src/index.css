@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #116111;
+  --color-brand-black: #000000;
+  --color-brand-white: #ffffff;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --animate-spin-slow: spin 8s linear infinite;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-black antialiased;
+  }
+}
+
+.glass-card {
+  @apply bg-white/10 backdrop-blur-md border border-white/20;
+}
+
+.btn-primary {
+  @apply bg-brand-green text-white px-6 py-2 rounded-lg font-medium transition-all hover:bg-emerald-800 active:scale-95;
+}
+
+.btn-secondary {
+  @apply border-2 border-brand-green text-brand-green px-6 py-2 rounded-lg font-medium transition-all hover:bg-brand-green hover:text-white active:scale-95;
+}
+
+.input-field {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-transparent outline-none transition-all;
+}
