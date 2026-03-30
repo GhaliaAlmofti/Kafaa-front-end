@@ -1,7 +1,11 @@
-import { User, Job, CV, JobApplication, GrowthReport, Company } from '../types';
+import { Job, GrowthReport } from '../types';
 
-// Update this to your Django Backend URL
-const API_BASE = 'http://localhost:8000/api/v1';
+const rawBase =
+  import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
+const API_BASE = rawBase.replace(/\/+$/, '');
+
+const ACCESS_KEY = 'kafaa_access_token';
+const REFRESH_KEY = 'kafaa_refresh_token';
 
 function getCookie(name: string) {
   let cookieValue = null;
@@ -17,75 +21,150 @@ function getCookie(name: string) {
   return cookieValue;
 }
 
-async function request(path: string, options: RequestInit = {}) {
+export function getStoredAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_KEY);
+}
+
+function getStoredRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function setStoredTokens(access: string, refresh: string) {
+  localStorage.setItem(ACCESS_KEY, access);
+  localStorage.setItem(REFRESH_KEY, refresh);
+}
+
+export function clearStoredTokens() {
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+}
+
+function saveTokensFromBody(data: unknown) {
+  if (!data || typeof data !== 'object') return;
+  const d = data as Record<string, unknown>;
+  if (typeof d.access === 'string' && typeof d.refresh === 'string') {
+    setStoredTokens(d.access, d.refresh);
+  }
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  const refresh = getStoredRefreshToken();
+  if (!refresh) return false;
+  try {
+    const res = await fetch(`${API_BASE}/token/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+      credentials: 'include',
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    saveTokensFromBody(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function request(path: string, options: RequestInit = {}, retried = false): Promise<any> {
   const url = `${API_BASE}${path}`;
   const headers = new Headers(options.headers || {});
 
-  // 1. Handle JSON Content-Type automatically
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  // 2. Attach CSRF Token for security
   const csrfToken = getCookie('csrftoken');
   if (csrfToken) {
     headers.set('X-CSRFToken', csrfToken);
   }
 
-  // 3. 'credentials: include' is MUST for Django Sessions to work across ports
+  const access = getStoredAccessToken();
+  if (access) {
+    headers.set('Authorization', `Bearer ${access}`);
+  }
+
   const response = await fetch(url, {
     ...options,
     headers,
-    credentials: 'include'
+    credentials: 'include',
   });
+
+  if (response.status === 401 && !retried && path !== '/token/refresh/') {
+    const ok = await refreshAccessToken();
+    if (ok) {
+      return request(path, options, true);
+    }
+    clearStoredTokens();
+  }
 
   if (response.status === 204) return null;
 
-  // Handle empty or error responses gracefully
-  const contentType = response.headers.get("content-type");
-  const data = (contentType && contentType.includes("application/json"))
-    ? await response.json()
-    : await response.text();
+  const contentType = response.headers.get('content-type');
+  const data =
+    contentType && contentType.includes('application/json')
+      ? await response.json()
+      : await response.text();
 
   if (!response.ok) {
     throw new Error(typeof data === 'object' ? JSON.stringify(data) : data || 'API Error');
   }
+
+  saveTokensFromBody(data);
   return data;
 }
 
 export const api = {
-  // --- Auth ---
   getCsrf: () => request('/csrf/'),
 
-  // Updated: Ensure roles ('CANDIDATE' | 'RECRUITER') are passed in 'data'
   signup: (data: any) => request('/signup/', { method: 'POST', body: JSON.stringify(data) }),
 
   login: (data: any) => request('/login/', { method: 'POST', body: JSON.stringify(data) }),
 
-  verifyOtp: (otpCode: string) => request('/verify-otp/', {
-    method: 'POST',
-    body: JSON.stringify({ otp: otpCode })
-  }),
+  verifyOtp: (otpCode: string) =>
+    request('/verify-otp/', {
+      method: 'POST',
+      body: JSON.stringify({ otp: otpCode }),
+    }),
 
-  logout: () => request('/logout/', { method: 'POST' }),
+  logout: async () => {
+    try {
+      await request('/logout/', { method: 'POST' });
+    } finally {
+      clearStoredTokens();
+    }
+  },
 
-  // This will now return { username, profiles, role }
-  getMe: (): Promise<{ username: string, role: string, profiles: any[] }> => request('/me/'),
+  getMe: (): Promise<{
+    username: string;
+    profiles: any[];
+    id?: number;
+    is_verified?: boolean;
+    phone_number?: string;
+    role?: string;
+  }> => request('/me/') as Promise<{
+    username: string;
+    profiles: any[];
+    id?: number;
+    is_verified?: boolean;
+    phone_number?: string;
+    role?: string;
+  }>,
 
-  // --- CVs ---
   uploadCV: (formData: FormData) => request('/cvs/upload/', { method: 'POST', body: formData }),
   parseCV: (id: number) => request(`/cvs/${id}/parse/`, { method: 'POST' }),
   downloadCV: (id: number) => request(`/cvs/${id}/download/`),
 
-  // --- Jobs ---
-  listJobs: (): Promise<Job[]> => request('/jobs/'),
+  listJobs: (): Promise<Job[]> => request('/jobs/') as Promise<Job[]>,
 
-  // Updated: Recruiter sends Job data + company_id
   createJob: (data: any) => request('/jobs/create/', { method: 'POST', body: JSON.stringify(data) }),
 
-  applyJob: (data: { job: number; cv: number }) => request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
+  applyJob: (data: { job: number; cv: number }) =>
+    request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
 
-  rankCandidates: (jobId: number): Promise<any[]> => request(`/jobs/${jobId}/rank-candidates/`),
+  rankCandidates: (jobId: number): Promise<any[]> =>
+    request(`/jobs/${jobId}/rank-candidates/`) as Promise<any[]>,
 
-  getGrowthReport: (applicationId: number): Promise<GrowthReport> => request(`/jobs/applications/${applicationId}/growth-report/`),
+  getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
+    request(`/jobs/applications/${applicationId}/growth-report/`) as Promise<GrowthReport>,
 };
