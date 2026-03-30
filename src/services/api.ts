@@ -34,6 +34,9 @@ const API_BASE = rawBase.replace(/\/+$/, '');
 const ACCESS_KEY = 'kafaa_access_token';
 const REFRESH_KEY = 'kafaa_refresh_token';
 
+/** Token from GET /csrf/ JSON body — required when API is on another origin (cookie not readable via document.cookie). */
+let csrfTokenCache: string | null = null;
+
 function getCookie(name: string) {
   let cookieValue = null;
   const decodedCookie = decodeURIComponent(document.cookie);
@@ -46,6 +49,33 @@ function getCookie(name: string) {
     }
   }
   return cookieValue;
+}
+
+function setCsrfFromResponseBody(data: unknown) {
+  if (!data || typeof data !== 'object') return;
+  const d = data as Record<string, unknown>;
+  if (typeof d.csrfToken === 'string') {
+    csrfTokenCache = d.csrfToken;
+  }
+}
+
+/** Fetches CSRF via GET /csrf/ (no CSRF header needed). Use when cookie is not visible cross-origin. */
+async function fetchCsrfToken(): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/csrf/`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setCsrfFromResponseBody(data);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearCsrfTokenCache() {
+  csrfTokenCache = null;
 }
 
 export function getStoredAccessToken(): string | null {
@@ -101,7 +131,13 @@ async function request(path: string, options: RequestInit = {}, retried = false)
     headers.set('Content-Type', 'application/json');
   }
 
-  const csrfToken = getCookie('csrftoken');
+  const method = (options.method || 'GET').toUpperCase();
+  const needsCsrfHeader = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  if (needsCsrfHeader && !csrfTokenCache && !getCookie('csrftoken')) {
+    await fetchCsrfToken();
+  }
+
+  const csrfToken = csrfTokenCache || getCookie('csrftoken');
   if (csrfToken) {
     headers.set('X-CSRFToken', csrfToken);
   }
@@ -138,6 +174,7 @@ async function request(path: string, options: RequestInit = {}, retried = false)
   }
 
   saveTokensFromBody(data);
+  setCsrfFromResponseBody(data);
   return data;
 }
 
@@ -165,6 +202,7 @@ export const api = {
       await request('/logout/', { method: 'POST' });
     } finally {
       clearStoredTokens();
+      clearCsrfTokenCache();
     }
   },
 
