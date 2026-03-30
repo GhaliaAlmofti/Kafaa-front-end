@@ -1,4 +1,4 @@
-import { Company, Job, GrowthReport } from '../types';
+import { Company, Job, GrowthReport, CV } from '../types';
 
 export type LoginCredentials = {
   username: string;
@@ -9,7 +9,6 @@ export type LoginResponse = {
   message: string;
   user: string;
   is_verified: boolean;
-  /** Present when backend is updated; required for OTP without shared session cookies. */
   user_id?: number;
 };
 
@@ -42,7 +41,6 @@ const API_BASE = rawBase.replace(/\/+$/, '');
 const ACCESS_KEY = 'kafaa_access_token';
 const REFRESH_KEY = 'kafaa_refresh_token';
 
-/** Token from GET /csrf/ JSON body — required when API is on another origin (cookie not readable via document.cookie). */
 let csrfTokenCache: string | null = null;
 
 function getCookie(name: string) {
@@ -51,7 +49,7 @@ function getCookie(name: string) {
   const cookies = decodedCookie.split(';');
   for (let i = 0; i < cookies.length; i++) {
     const cookie = cookies[i].trim();
-    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+    if (cookie.substring(name.length + 1) === (name + '=')) {
       cookieValue = cookie.substring(name.length + 1);
       break;
     }
@@ -67,7 +65,6 @@ function setCsrfFromResponseBody(data: unknown) {
   }
 }
 
-/** Fetches CSRF via GET /csrf/ (no CSRF header needed). Use when cookie is not visible cross-origin. */
 async function fetchCsrfToken(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE}/csrf/`, {
@@ -77,9 +74,7 @@ async function fetchCsrfToken(): Promise<void> {
     if (!res.ok) return;
     const data = await res.json();
     setCsrfFromResponseBody(data);
-  } catch {
-    /* ignore */
-  }
+  } catch { /* ignore */ }
 }
 
 export function clearCsrfTokenCache() {
@@ -126,9 +121,7 @@ async function refreshAccessToken(): Promise<boolean> {
     const data = await res.json();
     saveTokensFromBody(data);
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 async function request(
@@ -146,8 +139,8 @@ async function request(
 
   const method = (options.method || 'GET').toUpperCase();
   const needsCsrfHeader = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  
   if (needsCsrfHeader && path !== '/csrf/') {
-    // Always refresh CSRF for unsafe methods to avoid stale/rotated tokens.
     await fetchCsrfToken();
   }
 
@@ -169,9 +162,7 @@ async function request(
 
   if (response.status === 401 && !retried && path !== '/token/refresh/') {
     const ok = await refreshAccessToken();
-    if (ok) {
-      return request(path, options, true, csrfRetried);
-    }
+    if (ok) return request(path, options, true, csrfRetried);
     clearStoredTokens();
   }
 
@@ -227,9 +218,21 @@ export const api = {
 
   getMe: (): Promise<MeResponse> => request('/me/') as Promise<MeResponse>,
 
-  uploadCV: (formData: FormData) => request('/cvs/upload/', { method: 'POST', body: formData }),
-  parseCV: (id: number) => request(`/cvs/${id}/parse/`, { method: 'POST' }),
+  // --- UPDATED CV SECTION ---
+  
+  // Fetches existing CVs from the database
+  getUserCV: (): Promise<CV[]> => request('/cvs/') as Promise<CV[]>,
+
+  uploadCV: (formData: FormData): Promise<CV> => 
+    request('/cvs/upload/', { method: 'POST', body: formData }) as Promise<CV>,
+
+  // Now returns Promise<CV> so we get the ID back after AI parsing
+  parseCV: (id: number): Promise<CV> => 
+    request(`/cvs/${id}/parse/`, { method: 'POST' }) as Promise<CV>,
+
   downloadCV: (id: number) => request(`/cvs/${id}/download/`),
+
+  // --- JOBS & COMPANIES ---
 
   listJobs: (): Promise<Job[]> => request('/jobs/') as Promise<Job[]>,
 
@@ -243,14 +246,7 @@ export const api = {
     }));
   },
 
-  createCompany: async (data: {
-    name: string;
-    about: string;
-    company_field: string;
-    username: string;
-    password: string;
-    phone_number: string;
-  }): Promise<Company> => {
+  createCompany: async (data: any): Promise<Company> => {
     const company = await request('/companies/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -263,13 +259,7 @@ export const api = {
     };
   },
 
- createJob: (data: {
-    title: string;
-    description: string;
-    location: string;
-    job_type: Job['job_type'];
-    company_id: number;
-  }) => {
+  createJob: (data: any) => {
     const formattedData = {
       ...data,
       job_type: data.job_type.toLowerCase().replace('_', '-')
@@ -280,12 +270,12 @@ export const api = {
     });
   },
 
-applyJob: (data: { job: number; cv: number }) =>
+  applyJob: (data: { job: number; cv: number }) =>
     request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
 
   rankCandidates: (jobId: number): Promise<any[]> =>
     request(`/jobs/${jobId}/rank-candidates/`) as Promise<any[]>,
 
- getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
+  getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
     request(`/jobs/applications/${applicationId}/growth-report/`) as Promise<GrowthReport>,
 };

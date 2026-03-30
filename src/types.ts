@@ -29,7 +29,7 @@ export interface Job {
   owner: number;
   description: string;
   location: string;
-  job_type: 'full-time' | 'part-time' | 'internship' | 'freelance'; 
+  job_type: 'full-time' | 'part-time' | 'internship' | 'freelance';
   created_at: string;
 }
 
@@ -39,7 +39,7 @@ export interface CV {
   file: string;
   parsed_data: any;
   is_parsed: boolean;
-  created_at: string;
+  uploaded_at: string;
 }
 
 export interface JobApplication {
@@ -47,7 +47,7 @@ export interface JobApplication {
   job: number;
   applicant: number;
   cv: number;
-  status: 'pending' | 'reviewed' | 'accepted' | 'rejected'; 
+  status: 'pending' | 'reviewed' | 'accepted' | 'rejected';
   match_score: number;
   match_reason: string;
   applied_at: string;

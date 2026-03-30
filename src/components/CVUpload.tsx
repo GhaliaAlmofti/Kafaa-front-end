@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { Upload, FileText, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
+import { CV } from '../types';
 
-const CVUpload = ({ onUploadSuccess }: { onUploadSuccess: (data: any) => void }) => {
+interface CVUploadProps {
+    onUploadSuccess: (data: CV) => void;
+}
+
+const CVUpload = ({ onUploadSuccess }: CVUploadProps) => {
     const [file, setFile] = useState<File | null>(null);
     const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing' | 'success' | 'error'>('idle');
     const [error, setError] = useState('');
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
+        if (e.target.files && e.target.files[0]) {
             setFile(e.target.files[0]);
             setError('');
+            setStatus('idle');
         }
     };
 
@@ -22,23 +28,36 @@ const CVUpload = ({ onUploadSuccess }: { onUploadSuccess: (data: any) => void })
         formData.append('file', file);
 
         try {
-            // 1. Upload to Django
+            // 1. Upload the file to Django
             const uploadRes = await api.uploadCV(formData);
 
             // 2. Trigger AI Parsing
             setStatus('parsing');
+
+            // parseRes now contains the full CV object: { id, file, parsed_data, ... }
             const parseRes = await api.parseCV(uploadRes.id);
 
             setStatus('success');
-            onUploadSuccess(parseRes.data); // This is the 'CVData' from your AI schema
+
+            // CRITICAL FIX: Pass the entire object so the dashboard gets the ID
+            onUploadSuccess(parseRes);
+
         } catch (err: any) {
+            console.error("CV Processing Error:", err);
             setStatus('error');
-            setError(err.message || 'Failed to process CV');
+            setError(err.message || 'Failed to process CV. Please try again.');
         }
     };
 
     return (
         <div className="p-8 border-2 border-dashed border-gray-200 rounded-3xl bg-white text-center">
+            {error && (
+                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl flex items-center justify-center gap-2 text-sm border border-red-100">
+                    <AlertCircle size={16} />
+                    {error}
+                </div>
+            )}
+
             {status === 'idle' && (
                 <>
                     <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-full flex items-center justify-center mx-auto mb-4">
@@ -59,8 +78,12 @@ const CVUpload = ({ onUploadSuccess }: { onUploadSuccess: (data: any) => void })
                     >
                         {file ? file.name : 'Select File'}
                     </label>
+
                     {file && (
-                        <button onClick={processCV} className="btn-primary block mx-auto mt-4 px-10">
+                        <button
+                            onClick={processCV}
+                            className="btn-primary block mx-auto mt-4 px-10 py-3 rounded-xl font-bold"
+                        >
                             Start AI Analysis
                         </button>
                     )}
@@ -81,7 +104,17 @@ const CVUpload = ({ onUploadSuccess }: { onUploadSuccess: (data: any) => void })
                 <div className="py-10 text-green-600">
                     <CheckCircle size={48} className="mx-auto mb-4" />
                     <p className="text-lg font-bold">Analysis Complete!</p>
+                    <p className="text-sm text-gray-500 mt-2">Your profile has been updated.</p>
                 </div>
+            )}
+
+            {status === 'error' && (
+                <button
+                    onClick={() => setStatus('idle')}
+                    className="mt-4 text-brand-green font-bold text-sm underline"
+                >
+                    Try Again
+                </button>
             )}
         </div>
     );

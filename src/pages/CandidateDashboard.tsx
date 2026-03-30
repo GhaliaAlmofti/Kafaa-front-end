@@ -37,15 +37,24 @@ const CandidateDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const jobsData = await api.listJobs();
+      setError('');
+
+      // Load jobs and User info
+      const [jobsData, me] = await Promise.all([
+        api.listJobs(),
+        api.getMe()
+      ]);
+
       setJobs(jobsData);
 
-      const me = await api.getMe();
-      if (me.profiles && me.profiles.length > 0) {
-        // If your backend links CV to Profile, uncomment below:
-        // setCv(me.profiles[0].cv); 
+      // FIX: Fetch existing CVs from the backend so they don't disappear on refresh
+      const existingCvs = await api.getUserCV();
+      if (existingCvs && existingCvs.length > 0) {
+        // Take the most recently uploaded CV
+        setCv(existingCvs[0]);
       }
     } catch (err) {
+      console.error("Dashboard Load Error:", err);
       setError('Failed to load your dashboard data.');
     } finally {
       setLoading(false);
@@ -62,12 +71,20 @@ const CandidateDashboard = () => {
     try {
       setStatus('uploading');
       setError('');
+
+      // 1. Upload file
       const newCv = await api.uploadCV(formData);
 
+      // 2. Trigger AI Parsing
       setStatus('parsing');
-      const parsed = await api.parseCV(newCv.id);
-      setCv(parsed);
+      const parsedFullCv = await api.parseCV(newCv.id);
+
+      // FIX: We now set the full CV object (which includes the ID) 
+      // instead of just the parsed text results.
+      setCv(parsedFullCv);
+
     } catch (err: any) {
+      console.error("Upload Error:", err);
       setError('Processing failed. Please ensure the file is a valid PDF or DOCX.');
     } finally {
       setStatus('idle');
@@ -75,11 +92,14 @@ const CandidateDashboard = () => {
   };
 
   const handleApply = async (jobId: number) => {
-    if (!cv) {
+    // FIX: Check for cv.id specifically to prevent "Required" errors
+    if (!cv || !cv.id) {
       setError('Please upload your CV first so the AI can match your skills.');
       return;
     }
+
     try {
+      setError('');
       const application = await api.applyJob({ job: jobId, cv: cv.id });
       const report = await api.getGrowthReport(application.id);
       setGrowthReport(report);
@@ -145,7 +165,9 @@ const CandidateDashboard = () => {
                     <CheckCircle size={24} />
                     <div>
                       <p className="font-bold text-sm">Verified by AI</p>
-                      <p className="text-[11px] opacity-80 uppercase font-bold tracking-tight">Full Name: {cv.parsed_data?.full_name}</p>
+                      <p className="text-[11px] opacity-80 uppercase font-bold tracking-tight">
+                        Name: {cv.parsed_data?.full_name || 'Extracted'}
+                      </p>
                     </div>
                   </div>
 
@@ -161,6 +183,13 @@ const CandidateDashboard = () => {
                       ))}
                     </div>
                   </div>
+
+                  <button
+                    onClick={() => setCv(null)}
+                    className="text-[10px] text-gray-400 underline w-full text-center hover:text-red-500"
+                  >
+                    Re-upload different CV
+                  </button>
                 </div>
               )}
             </div>
@@ -199,7 +228,7 @@ const CandidateDashboard = () => {
             </div>
           </div>
 
-          {/* Right: Job Feed */}
+          {/* Right Column: Job Feed */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-8">
@@ -225,7 +254,6 @@ const CandidateDashboard = () => {
                           <span className="flex items-center gap-1 text-xs text-gray-400">
                             <MapPin size={12} /> {job.location}
                           </span>
-                          {/* 2. Display the pretty label instead of the slug */}
                           <span className="text-[10px] font-black text-brand-green bg-emerald-50 px-2 py-0.5 rounded-md uppercase">
                             {JOB_TYPE_LABELS[job.job_type] || job.job_type}
                           </span>
