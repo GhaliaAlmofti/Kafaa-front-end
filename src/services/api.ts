@@ -263,20 +263,29 @@ export const api = {
     };
   },
 
-  createJob: (data: {
+ createJob: (data: {
     title: string;
     description: string;
     location: string;
     job_type: Job['job_type'];
     company_id: number;
-  }) => request('/jobs/create/', { method: 'POST', body: JSON.stringify(data) }),
+  }) => {
+    const formattedData = {
+      ...data,
+      job_type: data.job_type.toLowerCase().replace('_', '-')
+    };
+    return request('/jobs/create/', { 
+      method: 'POST', 
+      body: JSON.stringify(formattedData) 
+    });
+  },
 
-  applyJob: (data: { job: number; cv: number }) =>
+applyJob: (data: { job: number; cv: number }) =>
     request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
 
   rankCandidates: (jobId: number): Promise<any[]> =>
     request(`/jobs/${jobId}/rank-candidates/`) as Promise<any[]>,
 
-  getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
+ getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
     request(`/jobs/applications/${applicationId}/growth-report/`) as Promise<GrowthReport>,
 };
