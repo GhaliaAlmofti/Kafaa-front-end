@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api'; // Ensure path is correct
+import { SESSION_VERIFY_USER_ID_KEY } from '../utils/authRedirect';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -53,8 +54,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // 3. OTP Verification Logic: Hits api/v1/verify-otp/
     const verifyOtp = async (otp: string) => {
-        // We updated api.verifyOtp to take just the string and wrap it as { otp: '0000' }
-        await api.verifyOtp(otp);
+        const rawId = sessionStorage.getItem(SESSION_VERIFY_USER_ID_KEY);
+        const userId = rawId ? parseInt(rawId, 10) : undefined;
+        await api.verifyOtp(otp, Number.isFinite(userId) ? userId : undefined);
+        sessionStorage.removeItem(SESSION_VERIFY_USER_ID_KEY);
 
         // After OTP success, Django logs the user in. Fetch the full user data.
         const data = await api.getMe();

@@ -3,10 +3,18 @@ import { motion } from 'motion/react';
 import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, MapPin, Briefcase, GraduationCap, Loader2 } from 'lucide-react';
 import { Job, CV, GrowthReport } from '../types';
 import { api } from '../services/api';
-import { useAuth } from '../context/AuthContext'; // Use the real auth hook
+
+function readStoredUser(): { username?: string; role?: string } | null {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? (JSON.parse(raw) as { username?: string; role?: string }) : null;
+  } catch {
+    return null;
+  }
+}
 
 const CandidateDashboard = () => {
-  const { user } = useAuth();
+  const [user] = useState(() => readStoredUser());
   const [cv, setCv] = useState<CV | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [growthReport, setGrowthReport] = useState<GrowthReport | null>(null);

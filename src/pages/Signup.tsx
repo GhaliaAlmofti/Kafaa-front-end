@@ -3,14 +3,13 @@ import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Phone, Lock, User, AlertCircle, Briefcase, UserCircle } from 'lucide-react';
 import { api } from '../services/api';
+import { SESSION_VERIFY_USER_ID_KEY } from '../utils/authRedirect';
 
 const Signup = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
-  // New state for Role
   const [role, setRole] = useState<'CANDIDATE' | 'RECRUITER'>('CANDIDATE');
-  const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -21,24 +20,22 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      // We now pass the 'role' to the API
-      await api.signup({
+      await api.getCsrf().catch(() => {});
+      const created = await api.signup({
         username,
         password,
         phone_number: phone,
-        role
+        role,
       });
-      setOtpSent(true);
-
-      // OPTIONAL: Auto-redirect to login after 3 seconds
-      // setTimeout(() => navigate('/login'), 3000);
-
-    } catch (err: any) {
+      sessionStorage.setItem(SESSION_VERIFY_USER_ID_KEY, String(created.user_id));
+      navigate('/verify-otp');
+    } catch (err: unknown) {
       try {
-        const data = JSON.parse(err.message);
-        setError(Object.values(data).flat().join(' ') || 'Signup failed');
+        const msg = err instanceof Error ? err.message : String(err);
+        const data = JSON.parse(msg);
+        setError(Object.values(data as Record<string, unknown>).flat().join(' ') || 'Signup failed');
       } catch {
-        setError(err.message || 'Signup failed');
+        setError(err instanceof Error ? err.message : 'Signup failed');
       }
     } finally {
       setLoading(false);
@@ -68,102 +65,88 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSignup} className="space-y-6">
-          {!otpSent ? (
-            <>
-              {/* Role Selection UI */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setRole('CANDIDATE')}
-                  className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${role === 'CANDIDATE' ? 'border-brand-green bg-green-50 text-brand-green' : 'border-gray-100 text-gray-500'
-                    }`}
-                >
-                  <UserCircle size={24} className="mb-2" />
-                  <span className="font-semibold">Candidate</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('RECRUITER')}
-                  className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${role === 'RECRUITER' ? 'border-brand-green bg-green-50 text-brand-green' : 'border-gray-100 text-gray-500'
-                    }`}
-                >
-                  <Briefcase size={24} className="mb-2" />
-                  <span className="font-semibold">Recruiter</span>
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Username</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input
-                    type="text"
-                    className="input-field pl-12"
-                    placeholder="Choose a username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input
-                    type="password"
-                    className="input-field pl-12"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">Libyan Phone Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input
-                    type="tel"
-                    className="input-field pl-12"
-                    placeholder="091 XXX XXXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-lg disabled:opacity-50">
-                {loading ? 'Creating Account...' : 'Sign Up'}
-              </button>
-            </>
-          ) : (
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-center py-4"
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <button
+              type="button"
+              onClick={() => setRole('CANDIDATE')}
+              className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
+                role === 'CANDIDATE'
+                  ? 'border-brand-green bg-green-50 text-brand-green'
+                  : 'border-gray-100 text-gray-500'
+              }`}
             >
-              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Phone size={32} />
-              </div>
-              <p className="text-brand-green font-bold text-xl mb-2">Account Created!</p>
-              <p className="text-sm text-gray-500 mb-8">
-                Please login to verify your phone number. <br />
-                Use the default verification code: <span className="font-bold text-brand-green text-lg">0000</span>
-              </p>
-              <Link to="/login" className="btn-primary w-full py-3 text-lg text-center block">
-                Proceed to Login
-              </Link>
-            </motion.div>
-          )}
+              <UserCircle size={24} className="mb-2" />
+              <span className="font-semibold">Candidate</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole('RECRUITER')}
+              className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
+                role === 'RECRUITER'
+                  ? 'border-brand-green bg-green-50 text-brand-green'
+                  : 'border-gray-100 text-gray-500'
+              }`}
+            >
+              <Briefcase size={24} className="mb-2" />
+              <span className="font-semibold">Recruiter</span>
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Username</label>
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                className="input-field pl-12"
+                placeholder="Choose a username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="password"
+                className="input-field pl-12"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Libyan Phone Number</label>
+            <div className="relative">
+              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="tel"
+                className="input-field pl-12"
+                placeholder="091 XXX XXXX"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-lg disabled:opacity-50">
+            {loading ? 'Creating Account...' : 'Sign Up'}
+          </button>
         </form>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          Already have an account? <Link to="/login" className="text-brand-green font-bold hover:underline">Sign in</Link>
+          Already have an account?{' '}
+          <Link to="/login" className="text-brand-green font-bold hover:underline">
+            Sign in
+          </Link>
         </div>
       </motion.div>
     </div>

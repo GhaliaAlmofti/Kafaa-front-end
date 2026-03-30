@@ -1,5 +1,32 @@
 import { Job, GrowthReport } from '../types';
 
+export type LoginCredentials = {
+  username: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  message: string;
+  user: string;
+  is_verified: boolean;
+  /** Present when backend is updated; required for OTP without shared session cookies. */
+  user_id?: number;
+};
+
+export type SignupResponse = {
+  message: string;
+  user_id: number;
+};
+
+export type MeResponse = {
+  username: string;
+  profiles: unknown[];
+  id?: number;
+  is_verified?: boolean;
+  phone_number?: string;
+  role?: string;
+};
+
 const rawBase =
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
 const API_BASE = rawBase.replace(/\/+$/, '');
@@ -117,15 +144,21 @@ async function request(path: string, options: RequestInit = {}, retried = false)
 export const api = {
   getCsrf: () => request('/csrf/'),
 
-  signup: (data: any) => request('/signup/', { method: 'POST', body: JSON.stringify(data) }),
+  signup: (data: Record<string, unknown>) =>
+    request('/signup/', { method: 'POST', body: JSON.stringify(data) }) as Promise<SignupResponse>,
 
-  login: (data: any) => request('/login/', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data: LoginCredentials) =>
+    request('/login/', { method: 'POST', body: JSON.stringify(data) }) as Promise<LoginResponse>,
 
-  verifyOtp: (otpCode: string) =>
+  verifyOtp: (otpCode: string, userId?: number) =>
     request('/verify-otp/', {
       method: 'POST',
-      body: JSON.stringify({ otp: otpCode }),
-    }),
+      body: JSON.stringify(
+        userId != null && Number.isFinite(userId)
+          ? { otp: otpCode, user_id: userId }
+          : { otp: otpCode },
+      ),
+    }) as Promise<{ message: string }>,
 
   logout: async () => {
     try {
@@ -135,21 +168,7 @@ export const api = {
     }
   },
 
-  getMe: (): Promise<{
-    username: string;
-    profiles: any[];
-    id?: number;
-    is_verified?: boolean;
-    phone_number?: string;
-    role?: string;
-  }> => request('/me/') as Promise<{
-    username: string;
-    profiles: any[];
-    id?: number;
-    is_verified?: boolean;
-    phone_number?: string;
-    role?: string;
-  }>,
+  getMe: (): Promise<MeResponse> => request('/me/') as Promise<MeResponse>,
 
   uploadCV: (formData: FormData) => request('/cvs/upload/', { method: 'POST', body: formData }),
   parseCV: (id: number) => request(`/cvs/${id}/parse/`, { method: 'POST' }),
