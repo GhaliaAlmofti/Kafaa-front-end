@@ -1,41 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, MapPin, Briefcase, GraduationCap } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, MapPin, Briefcase, GraduationCap, Loader2 } from 'lucide-react';
 import { Job, CV, GrowthReport } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext'; // Use the real auth hook
 
 const CandidateDashboard = () => {
+  const { user } = useAuth();
   const [cv, setCv] = useState<CV | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [user, setUser] = useState<any>(null);
   const [growthReport, setGrowthReport] = useState<GrowthReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing'>('idle');
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) setUser(JSON.parse(userStr));
     fetchData();
   }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      // 1. Get Jobs
       const jobsData = await api.listJobs();
       setJobs(jobsData);
-      
+
+      // 2. Get User Profile/CV info from /me/
       const me = await api.getMe();
-      // In a real app, we'd have a way to get the user's CV. 
-      // For now, let's assume we can find it or it's part of the profile.
-      // If the user has a CV, we'd set it here.
-      
-      // Mocking finding the CV for now if the user is verified
-      if (me.is_verified) {
-        // We'd ideally have an endpoint like api.getMyCV()
+      // Assuming your backend 'UserSerializer' returns a 'cvs' array
+      if (me.profiles && me.profiles.length > 0) {
+        // If your backend links CV to Profile
+        // setCv(me.profiles[0].cv); 
       }
+
+      // If you have a specific endpoint to get the latest CV:
+      // const myCv = await api.getMyCV(); 
+      // setCv(myCv);
+
     } catch (err) {
-      setError('Failed to load data');
+      setError('Failed to load your dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -49,73 +52,91 @@ const CandidateDashboard = () => {
     formData.append('file', file);
 
     try {
-      setUploading(true);
+      setStatus('uploading');
+      setError('');
+
+      // 1. Upload
       const newCv = await api.uploadCV(formData);
-      setCv(newCv);
-      // Trigger parsing
-      await api.parseCV(newCv.id);
-      
-      // Refresh data
-      // const updatedCv = await api.getMe(); // Or a specific CV fetch
-      // setCv(updatedCv);
-    } catch (err) {
-      setError('Upload failed. Make sure you are logged in.');
+
+      // 2. Trigger AI Parsing (This uses your extract_cv_data logic)
+      setStatus('parsing');
+      const parsed = await api.parseCV(newCv.id);
+
+      // Success! Update local state
+      setCv(parsed);
+    } catch (err: any) {
+      setError('Processing failed. Please ensure the file is a valid PDF or DOCX.');
     } finally {
-      setUploading(false);
+      setStatus('idle');
     }
   };
 
   const handleApply = async (jobId: number) => {
     if (!cv) {
-      setError('Please upload your CV first');
+      setError('Please upload your CV first so the AI can match your skills.');
       return;
     }
     try {
       const application = await api.applyJob({ job: jobId, cv: cv.id });
-      alert('Application submitted!');
-      
-      // Fetch growth report for this application
+
+      // Fetch growth report (Your generate_growth_report logic)
       const report = await api.getGrowthReport(application.id);
       setGrowthReport(report);
+
+      alert('Application submitted! Check your Skill-Bridge report below.');
     } catch (err) {
-      setError('Application failed');
+      setError('You have already applied for this job or the server is busy.');
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      <Loader2 className="animate-spin text-brand-green mb-4" size={40} />
+      <p className="text-gray-500 font-medium">Loading your career profile...</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-12">
-          <h1 className="text-4xl font-bold text-brand-black">Welcome, {user?.username || 'Candidate'}</h1>
-          <p className="text-gray-500">Your personalized job feed based on your skills</p>
+        <header className="mb-12 flex justify-between items-end">
+          <div>
+            <h1 className="text-4xl font-bold text-brand-black">Marhaba, {user?.username}</h1>
+            <p className="text-gray-500">Libya's AI-powered job matching</p>
+          </div>
+          <div className="text-right hidden md:block">
+            <span className="bg-white px-4 py-2 rounded-full border border-gray-200 text-sm font-bold text-brand-green">
+              {user?.role} ACCOUNT
+            </span>
+          </div>
         </header>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm">
+          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm border border-red-100">
             <AlertCircle size={18} />
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: CV Status & Coaching */}
+          {/* Left: CV & AI Analysis */}
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <FileText className="text-brand-green" /> CV Status
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-brand-black">
+                <FileText className="text-brand-green" /> CV Profile
               </h2>
-              
+
               {!cv ? (
-                <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-brand-green mx-auto mb-4">
-                    <Upload size={32} />
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-brand-green mx-auto mb-4">
+                    {status === 'idle' ? <Upload size={28} /> : <Loader2 size={28} className="animate-spin" />}
                   </div>
-                  <p className="text-sm text-gray-500 mb-6">Upload your CV to start matching with top Libyan companies.</p>
-                  <label className="btn-primary w-full cursor-pointer text-center block">
-                    {uploading ? 'Uploading...' : 'Upload CV (PDF/DOCX)'}
-                    <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} accept=".pdf,.docx" />
+                  <p className="text-sm text-gray-500 mb-6">
+                    {status === 'uploading' ? 'Uploading...' : status === 'parsing' ? 'AI is reading CV...' : 'Upload your CV to unlock AI matching'}
+                  </p>
+                  <label className="btn-primary w-full cursor-pointer text-center block py-3">
+                    {status === 'idle' ? 'Select CV' : 'Processing...'}
+                    <input type="file" className="hidden" onChange={handleFileUpload} disabled={status !== 'idle'} accept=".pdf,.docx" />
                   </label>
                 </div>
               ) : (
@@ -123,98 +144,108 @@ const CandidateDashboard = () => {
                   <div className="p-4 bg-emerald-50 rounded-2xl flex items-center gap-4 text-brand-green">
                     <CheckCircle size={24} />
                     <div>
-                      <p className="font-bold">CV Digitized</p>
-                      <p className="text-xs opacity-80">{cv.is_parsed ? 'AI has parsed your profile' : 'Parsing in progress...'}</p>
+                      <p className="font-bold text-sm">Verified by AI</p>
+                      <p className="text-[11px] opacity-80 uppercase font-bold tracking-tight">Full Name: {cv.parsed_data?.full_name}</p>
                     </div>
                   </div>
-                  
-                  <div className="p-6 bg-brand-black text-white rounded-2xl">
-                    <h3 className="font-bold mb-2 flex items-center gap-2">
-                      <TrendingUp size={18} className="text-brand-green" /> CV Coach
+
+                  <div className="p-5 bg-brand-black text-white rounded-2xl shadow-lg">
+                    <h3 className="font-bold mb-3 flex items-center gap-2 text-sm">
+                      <TrendingUp size={16} className="text-brand-green" /> Extracted Skills
                     </h3>
-                    <p className="text-sm text-gray-400 leading-relaxed">
-                      {cv.is_parsed 
-                        ? "Your profile is strong! We've identified your core strengths in " + (cv.parsed_data?.skills?.join(', ') || 'your field') + "."
-                        : "Digitizing your CV to provide personalized coaching..."}
-                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {cv.parsed_data?.skills?.map((skill: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-white/10 px-2 py-1 rounded-md border border-white/5">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
+            {/* Skill-Bridge (Your GrowthReport logic) */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-brand-green">
                 <GraduationCap size={24} /> Skill-Bridge
               </h2>
-              <div className="space-y-4">
-                {growthReport ? (
-                  <>
-                    <div className="p-4 border border-gray-100 rounded-2xl">
-                      <p className="text-sm font-bold mb-2">Skill Gaps Identified</p>
-                      <div className="flex flex-wrap gap-2">
-                        {growthReport.skill_gaps.map(gap => (
-                          <span key={gap} className="text-[10px] bg-red-50 text-red-600 px-2 py-1 rounded uppercase font-bold">{gap}</span>
-                        ))}
-                      </div>
+              {growthReport ? (
+                <div className="space-y-4">
+                  <div className="p-4 border border-red-50 bg-red-50/30 rounded-2xl">
+                    <p className="text-xs font-black text-red-600 uppercase mb-2">Knowledge Gaps</p>
+                    <div className="flex flex-wrap gap-1">
+                      {growthReport.skill_gaps.map(gap => (
+                        <span key={gap} className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">{gap}</span>
+                      ))}
                     </div>
-                    <div className="p-4 border border-gray-100 rounded-2xl">
-                      <p className="text-sm font-bold mb-2">Recommendations</p>
-                      <ul className="text-xs text-gray-500 space-y-2">
-                        {growthReport.recommendations.map((rec, i) => (
-                          <li key={i} className="flex gap-2">
-                            <span className="text-brand-green">•</span>
-                            {rec}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-4 border border-gray-100 rounded-2xl text-center">
-                    <p className="text-sm text-gray-500">Apply for a job to see your personalized growth report and skill-bridge recommendations.</p>
                   </div>
-                )}
-              </div>
+                  <div className="p-4 border border-gray-100 rounded-2xl bg-gray-50/50">
+                    <p className="text-xs font-black text-brand-black uppercase mb-2">Roadmap</p>
+                    <ul className="text-xs text-gray-600 space-y-2">
+                      {growthReport.recommendations.map((rec, i) => (
+                        <li key={i} className="flex gap-2 leading-relaxed italic">
+                          <span className="text-brand-green font-bold">→</span> {rec}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 border-2 border-dashed border-gray-100 rounded-2xl">
+                  <p className="text-xs text-gray-400 px-4">Apply to a job to see what skills you are missing for that specific role.</p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right: Job Feed */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold mb-8 flex items-center gap-2">
-                <Briefcase className="text-brand-green" /> Personalized Feed
-              </h2>
-              
-              <div className="space-y-6">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Briefcase className="text-brand-green" /> Opportunity Feed
+                </h2>
+                <span className="text-xs font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                  {jobs.length} OPENINGS
+                </span>
+              </div>
+
+              <div className="space-y-4">
                 {jobs.map(job => (
-                  <motion.div 
-                    key={job.id} 
-                    whileHover={{ x: 5 }}
-                    className="p-6 rounded-2xl border border-gray-100 hover:border-brand-green transition-all group"
+                  <motion.div
+                    key={job.id}
+                    whileHover={{ scale: 1.01 }}
+                    className="p-6 rounded-2xl border border-gray-100 hover:border-brand-green/30 hover:shadow-md transition-all bg-white"
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-xl font-bold group-hover:text-brand-green transition-colors">{job.title}</h3>
-                        <p className="text-gray-500 font-medium">Job ID: {job.id}</p>
+                        <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="flex items-center gap-1 text-xs text-gray-400"><MapPin size={12} /> {job.location}</span>
+                          <span className="text-[10px] font-black text-brand-green bg-emerald-50 px-2 py-0.5 rounded-md uppercase">{job.job_type}</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-brand-green font-black text-2xl">AI</div>
-                        <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Matching</div>
+                      <div className="flex flex-col items-end">
+                        <div className="text-brand-green font-black text-xl leading-none">AI</div>
+                        <div className="text-[8px] text-gray-400 uppercase font-black tracking-tighter">Match Engine</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-6 text-sm text-gray-400 mb-6">
-                      <span className="flex items-center gap-1"><MapPin size={16} /> {job.location}</span>
-                      <span className="flex items-center gap-1 uppercase font-bold text-[10px] tracking-widest text-brand-green bg-emerald-50 px-2 py-1 rounded">{job.job_type}</span>
-                    </div>
-                    <button onClick={() => handleApply(job.id)} className="btn-primary w-full py-3">Apply Now</button>
+
+                    <p className="text-sm text-gray-500 line-clamp-2 mb-6 leading-relaxed">
+                      {job.description}
+                    </p>
+
+                    <button
+                      onClick={() => handleApply(job.id)}
+                      disabled={!cv}
+                      className={`w-full py-3 rounded-xl font-bold transition-all ${cv ? 'bg-brand-black text-white hover:bg-brand-green' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                    >
+                      {cv ? 'One-Click Apply' : 'Upload CV to Apply'}
+                    </button>
                   </motion.div>
                 ))}
-                {jobs.length === 0 && (
-                  <div className="text-center py-20 text-gray-400">
-                    <Briefcase size={48} className="mx-auto mb-4 opacity-20" />
-                    <p>No jobs matching your profile yet.</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
