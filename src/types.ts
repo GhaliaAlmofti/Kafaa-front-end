@@ -29,7 +29,7 @@ export interface Job {
   owner: number;
   description: string;
   location: string;
-  job_type: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+  job_type: 'full-time' | 'part-time' | 'internship' | 'freelance';
   created_at: string;
 }
 

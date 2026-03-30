@@ -4,6 +4,14 @@ import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, MapPin, Briefca
 import { Job, CV, GrowthReport } from '../types';
 import { api } from '../services/api';
 
+// 1. Map backend slugs to human-readable labels
+const JOB_TYPE_LABELS: Record<string, string> = {
+  'full-time': 'Full Time',
+  'part-time': 'Part Time',
+  'internship': 'Internship',
+  'freelance': 'Freelance',
+};
+
 function readStoredUser(): { username?: string; role?: string } | null {
   try {
     const raw = localStorage.getItem('user');
@@ -29,22 +37,14 @@ const CandidateDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // 1. Get Jobs
       const jobsData = await api.listJobs();
       setJobs(jobsData);
 
-      // 2. Get User Profile/CV info from /me/
       const me = await api.getMe();
-      // Assuming your backend 'UserSerializer' returns a 'cvs' array
       if (me.profiles && me.profiles.length > 0) {
-        // If your backend links CV to Profile
+        // If your backend links CV to Profile, uncomment below:
         // setCv(me.profiles[0].cv); 
       }
-
-      // If you have a specific endpoint to get the latest CV:
-      // const myCv = await api.getMyCV(); 
-      // setCv(myCv);
-
     } catch (err) {
       setError('Failed to load your dashboard data.');
     } finally {
@@ -62,15 +62,10 @@ const CandidateDashboard = () => {
     try {
       setStatus('uploading');
       setError('');
-
-      // 1. Upload
       const newCv = await api.uploadCV(formData);
 
-      // 2. Trigger AI Parsing (This uses your extract_cv_data logic)
       setStatus('parsing');
       const parsed = await api.parseCV(newCv.id);
-
-      // Success! Update local state
       setCv(parsed);
     } catch (err: any) {
       setError('Processing failed. Please ensure the file is a valid PDF or DOCX.');
@@ -86,11 +81,8 @@ const CandidateDashboard = () => {
     }
     try {
       const application = await api.applyJob({ job: jobId, cv: cv.id });
-
-      // Fetch growth report (Your generate_growth_report logic)
       const report = await api.getGrowthReport(application.id);
       setGrowthReport(report);
-
       alert('Application submitted! Check your Skill-Bridge report below.');
     } catch (err) {
       setError('You have already applied for this job or the server is busy.');
@@ -113,7 +105,7 @@ const CandidateDashboard = () => {
             <p className="text-gray-500">Libya's AI-powered job matching</p>
           </div>
           <div className="text-right hidden md:block">
-            <span className="bg-white px-4 py-2 rounded-full border border-gray-200 text-sm font-bold text-brand-green">
+            <span className="bg-white px-4 py-2 rounded-full border border-gray-200 text-sm font-bold text-brand-green uppercase">
               {user?.role} ACCOUNT
             </span>
           </div>
@@ -127,7 +119,7 @@ const CandidateDashboard = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: CV & AI Analysis */}
+          {/* Left Column */}
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-brand-black">
@@ -173,7 +165,7 @@ const CandidateDashboard = () => {
               )}
             </div>
 
-            {/* Skill-Bridge (Your GrowthReport logic) */}
+            {/* Skill-Bridge */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-brand-green">
                 <GraduationCap size={24} /> Skill-Bridge
@@ -230,8 +222,13 @@ const CandidateDashboard = () => {
                       <div>
                         <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="flex items-center gap-1 text-xs text-gray-400"><MapPin size={12} /> {job.location}</span>
-                          <span className="text-[10px] font-black text-brand-green bg-emerald-50 px-2 py-0.5 rounded-md uppercase">{job.job_type}</span>
+                          <span className="flex items-center gap-1 text-xs text-gray-400">
+                            <MapPin size={12} /> {job.location}
+                          </span>
+                          {/* 2. Display the pretty label instead of the slug */}
+                          <span className="text-[10px] font-black text-brand-green bg-emerald-50 px-2 py-0.5 rounded-md uppercase">
+                            {JOB_TYPE_LABELS[job.job_type] || job.job_type}
+                          </span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end">
