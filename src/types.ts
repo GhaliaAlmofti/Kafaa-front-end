@@ -19,6 +19,7 @@ export interface Company {
   id: number;
   name: string;
   description: string;
+  company_field?: string;
   website?: string;
 }
 

@@ -1,4 +1,4 @@
-import { Job, GrowthReport } from '../types';
+import { Company, Job, GrowthReport } from '../types';
 
 export type LoginCredentials = {
   username: string;
@@ -25,6 +25,14 @@ export type MeResponse = {
   is_verified?: boolean;
   phone_number?: string;
   role?: string;
+};
+
+type BackendCompany = {
+  id: number;
+  name: string;
+  about: string;
+  company_field: string;
+  is_blocked?: boolean;
 };
 
 const rawBase =
@@ -123,7 +131,12 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-async function request(path: string, options: RequestInit = {}, retried = false): Promise<any> {
+async function request(
+  path: string,
+  options: RequestInit = {},
+  retried = false,
+  csrfRetried = false,
+): Promise<any> {
   const url = `${API_BASE}${path}`;
   const headers = new Headers(options.headers || {});
 
@@ -133,7 +146,8 @@ async function request(path: string, options: RequestInit = {}, retried = false)
 
   const method = (options.method || 'GET').toUpperCase();
   const needsCsrfHeader = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-  if (needsCsrfHeader && !csrfTokenCache && !getCookie('csrftoken')) {
+  if (needsCsrfHeader && path !== '/csrf/') {
+    // Always refresh CSRF for unsafe methods to avoid stale/rotated tokens.
     await fetchCsrfToken();
   }
 
@@ -156,9 +170,14 @@ async function request(path: string, options: RequestInit = {}, retried = false)
   if (response.status === 401 && !retried && path !== '/token/refresh/') {
     const ok = await refreshAccessToken();
     if (ok) {
-      return request(path, options, true);
+      return request(path, options, true, csrfRetried);
     }
     clearStoredTokens();
+  }
+
+  if (response.status === 403 && needsCsrfHeader && !csrfRetried && path !== '/csrf/') {
+    await fetchCsrfToken();
+    return request(path, options, retried, true);
   }
 
   if (response.status === 204) return null;
@@ -214,7 +233,43 @@ export const api = {
 
   listJobs: (): Promise<Job[]> => request('/jobs/') as Promise<Job[]>,
 
-  createJob: (data: any) => request('/jobs/create/', { method: 'POST', body: JSON.stringify(data) }),
+  listCompanies: async (): Promise<Company[]> => {
+    const data = await request('/companies/') as BackendCompany[];
+    return data.map((company) => ({
+      id: company.id,
+      name: company.name,
+      description: company.about,
+      company_field: company.company_field,
+    }));
+  },
+
+  createCompany: async (data: {
+    name: string;
+    about: string;
+    company_field: string;
+    username: string;
+    password: string;
+    phone_number: string;
+  }): Promise<Company> => {
+    const company = await request('/companies/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as BackendCompany;
+    return {
+      id: company.id,
+      name: company.name,
+      description: company.about,
+      company_field: company.company_field,
+    };
+  },
+
+  createJob: (data: {
+    title: string;
+    description: string;
+    location: string;
+    job_type: Job['job_type'];
+    company_id: number;
+  }) => request('/jobs/create/', { method: 'POST', body: JSON.stringify(data) }),
 
   applyJob: (data: { job: number; cv: number }) =>
     request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
