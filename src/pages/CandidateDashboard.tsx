@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, MapPin, Briefcase, GraduationCap, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, TrendingUp, MapPin, Briefcase, GraduationCap, Loader2, Sparkles } from 'lucide-react';
 import { Job, CV, GrowthReport } from '../types';
 import { api } from '../services/api';
 
@@ -30,6 +30,9 @@ const CandidateDashboard = () => {
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing'>('idle');
 
+  // New state to track which jobs have been applied to and their scores
+  const [applications, setApplications] = useState<Record<number, { score: number, reason: string }>>({});
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -39,7 +42,6 @@ const CandidateDashboard = () => {
       setLoading(true);
       setError('');
 
-      // Load jobs and User info
       const [jobsData, me] = await Promise.all([
         api.listJobs(),
         api.getMe()
@@ -47,10 +49,8 @@ const CandidateDashboard = () => {
 
       setJobs(jobsData);
 
-      // FIX: Fetch existing CVs from the backend so they don't disappear on refresh
       const existingCvs = await api.getUserCV();
       if (existingCvs && existingCvs.length > 0) {
-        // Take the most recently uploaded CV
         setCv(existingCvs[0]);
       }
     } catch (err) {
@@ -72,15 +72,9 @@ const CandidateDashboard = () => {
       setStatus('uploading');
       setError('');
 
-      // 1. Upload file
       const newCv = await api.uploadCV(formData);
-
-      // 2. Trigger AI Parsing
       setStatus('parsing');
       const parsedFullCv = await api.parseCV(newCv.id);
-
-      // FIX: We now set the full CV object (which includes the ID) 
-      // instead of just the parsed text results.
       setCv(parsedFullCv);
 
     } catch (err: any) {
@@ -92,7 +86,6 @@ const CandidateDashboard = () => {
   };
 
   const handleApply = async (jobId: number) => {
-    // FIX: Check for cv.id specifically to prevent "Required" errors
     if (!cv || !cv.id) {
       setError('Please upload your CV first so the AI can match your skills.');
       return;
@@ -101,8 +94,21 @@ const CandidateDashboard = () => {
     try {
       setError('');
       const application = await api.applyJob({ job: jobId, cv: cv.id });
+
+      // After applying, we fetch the growth report
       const report = await api.getGrowthReport(application.id);
       setGrowthReport(report);
+
+      // UI FIX: Update the local applications state to show the score for this job
+      // Note: In a real app, you might fetch the 'Rank' specifically, but for now 
+      // we'll assume the application object returns the score if already calculated.
+      if (application.match_score) {
+        setApplications(prev => ({
+          ...prev,
+          [jobId]: { score: application.match_score, reason: application.match_reason }
+        }));
+      }
+
       alert('Application submitted! Check your Skill-Bridge report below.');
     } catch (err) {
       setError('You have already applied for this job or the server is busy.');
@@ -241,44 +247,69 @@ const CandidateDashboard = () => {
               </div>
 
               <div className="space-y-4">
-                {jobs.map(job => (
-                  <motion.div
-                    key={job.id}
-                    whileHover={{ scale: 1.01 }}
-                    className="p-6 rounded-2xl border border-gray-100 hover:border-brand-green/30 hover:shadow-md transition-all bg-white"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
-                            <MapPin size={12} /> {job.location}
-                          </span>
-                          <span className="text-[10px] font-black text-brand-green bg-emerald-50 px-2 py-0.5 rounded-md uppercase">
-                            {JOB_TYPE_LABELS[job.job_type] || job.job_type}
-                          </span>
+                {jobs.map(job => {
+                  const appData = applications[job.id];
+
+                  return (
+                    <motion.div
+                      key={job.id}
+                      whileHover={{ scale: 1.01 }}
+                      className="p-6 rounded-2xl border border-gray-100 hover:border-brand-green/30 hover:shadow-md transition-all bg-white"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                              <MapPin size={12} /> {job.location}
+                            </span>
+                            <span className="text-[10px] font-black text-brand-green bg-emerald-50 px-2 py-0.5 rounded-md uppercase">
+                              {JOB_TYPE_LABELS[job.job_type] || job.job_type}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* AI RANKING DISPLAY: This is where we show the backend score */}
+                        <div className="flex flex-col items-end">
+                          <div className="flex items-center gap-1">
+                            {appData ? (
+                              <span className="text-brand-green font-black text-2xl">{appData.score}%</span>
+                            ) : (
+                              <Sparkles size={18} className="text-brand-green animate-pulse" />
+                            )}
+                          </div>
+                          <div className="text-[8px] text-gray-400 uppercase font-black tracking-tighter">
+                            {appData ? 'Match Score' : 'AI Match Engine'}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="text-brand-green font-black text-xl leading-none">AI</div>
-                        <div className="text-[8px] text-gray-400 uppercase font-black tracking-tighter">Match Engine</div>
-                      </div>
-                    </div>
 
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-6 leading-relaxed">
-                      {job.description}
-                    </p>
+                      <p className="text-sm text-gray-500 line-clamp-2 mb-4 leading-relaxed">
+                        {job.description}
+                      </p>
 
-                    <button
-                      onClick={() => handleApply(job.id)}
-                      disabled={!cv}
-                      className={`w-full py-3 rounded-xl font-bold transition-all ${cv ? 'bg-brand-black text-white hover:bg-brand-green' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                    >
-                      {cv ? 'One-Click Apply' : 'Upload CV to Apply'}
-                    </button>
-                  </motion.div>
-                ))}
+                      {/* Display AI Reason if available */}
+                      {appData?.reason && (
+                        <div className="mb-6 p-3 bg-gray-50 rounded-lg border-l-4 border-brand-green">
+                          <p className="text-[11px] text-gray-600 italic">"{appData.reason}"</p>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => handleApply(job.id)}
+                        disabled={!cv || !!appData}
+                        className={`w-full py-3 rounded-xl font-bold transition-all ${appData
+                            ? 'bg-emerald-100 text-brand-green cursor-default'
+                            : cv
+                              ? 'bg-brand-black text-white hover:bg-brand-green'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }`}
+                      >
+                        {appData ? 'Application Received' : cv ? 'One-Click Apply' : 'Upload CV to Apply'}
+                      </button>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           </div>
