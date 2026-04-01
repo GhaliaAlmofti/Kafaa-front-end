@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Briefcase, LogOut, User, Menu, X } from 'lucide-react';
+import { LogOut, User, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -8,9 +8,14 @@ const Navbar = () => {
   const user = userStr ? JSON.parse(userStr) : null;
   const [isOpen, setIsOpen] = React.useState(false);
 
+  // Logic: Check if the username is 'admin' to determine the path
+  const isAdmin = user?.username?.toLowerCase() === 'admin';
+  const dashboardPath = isAdmin ? '/admin' : '/dashboard';
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     navigate('/login');
+    setIsOpen(false);
   };
 
   return (
@@ -25,16 +30,21 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-8">
           <Link to="/" className="text-gray-600 hover:text-brand-green font-medium transition-colors">Home</Link>
           <Link to="/jobs" className="text-gray-600 hover:text-brand-green font-medium transition-colors">Browse Jobs</Link>
+
           {user ? (
             <div className="flex items-center gap-4">
-              <Link 
-                to={user.role === 'ADMIN' ? '/admin' : user.role === 'RECRUITER' ? '/recruiter-dashboard' : '/dashboard'} 
-                className="flex items-center gap-2 text-brand-black font-bold"
+              <Link
+                to={dashboardPath}
+                className="flex items-center gap-2 text-brand-black font-bold hover:text-brand-green transition-colors"
               >
                 <User size={20} className="text-brand-green" />
                 {user.username || 'My Profile'}
               </Link>
-              <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors">
+              <button
+                onClick={handleLogout}
+                className="text-gray-400 hover:text-red-500 transition-colors"
+                title="Logout"
+              >
                 <LogOut size={20} />
               </button>
             </div>
@@ -55,17 +65,17 @@ const Navbar = () => {
       {/* Mobile Menu */}
       {isOpen && (
         <div className="md:hidden bg-white border-b border-gray-100 p-6 space-y-4">
-          <Link to="/" className="block text-gray-600 font-medium">Home</Link>
-          <Link to="/jobs" className="block text-gray-600 font-medium">Browse Jobs</Link>
+          <Link to="/" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">Home</Link>
+          <Link to="/jobs" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">Browse Jobs</Link>
           {user ? (
             <>
-              <Link to={user.role === 'ADMIN' ? '/admin' : user.role === 'RECRUITER' ? '/recruiter-dashboard' : '/dashboard'} className="block font-bold">Dashboard</Link>
+              <Link to={dashboardPath} onClick={() => setIsOpen(false)} className="block font-bold">Dashboard</Link>
               <button onClick={handleLogout} className="block text-red-500 font-medium text-left w-full">Logout</button>
             </>
           ) : (
             <>
-              <Link to="/login" className="block text-gray-600 font-medium">Login</Link>
-              <Link to="/signup" className="block btn-primary text-center">Sign Up</Link>
+              <Link to="/login" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">Login</Link>
+              <Link to="/signup" onClick={() => setIsOpen(false)} className="block btn-primary text-center">Sign Up</Link>
             </>
           )}
         </div>

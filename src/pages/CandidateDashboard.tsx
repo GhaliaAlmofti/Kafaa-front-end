@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, Search, RefreshCw, FileText, AlertCircle, Briefcase } from 'lucide-react';
+import { Users, RefreshCw, FileText, AlertCircle, Briefcase, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
 import { Job, RankedApplication } from '../types';
 
@@ -10,7 +10,7 @@ const RecruiterDashboard = () => {
   const [candidates, setCandidates] = useState<RankedApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   useEffect(() => {
     fetchJobs();
   }, []);
@@ -34,6 +34,7 @@ const RecruiterDashboard = () => {
   const fetchRankedCandidates = async (jobId: number) => {
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       const data = await api.rankCandidates(jobId);
       setCandidates(data);
     } catch (err) {
@@ -58,8 +59,8 @@ const RecruiterDashboard = () => {
           </div>
           <div className="flex gap-4">
             <div className="relative">
-              <select 
-                className="input-field pl-10 appearance-none bg-white pr-10"
+              <select
+                className="input-field pl-10 appearance-none bg-white pr-10 min-w-[240px]"
                 value={selectedJob?.id || ''}
                 onChange={(e) => {
                   const job = jobs.find(j => j.id === parseInt(e.target.value));
@@ -77,7 +78,7 @@ const RecruiterDashboard = () => {
         </header>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm">
+          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm border border-red-100">
             <AlertCircle size={18} />
             {error}
           </div>
@@ -86,10 +87,10 @@ const RecruiterDashboard = () => {
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <Users className="text-brand-green" /> 
+              <Users className="text-brand-green" />
               {selectedJob ? `Top Matches for ${selectedJob.title}` : 'Select a job to see matches'}
             </h2>
-            <button 
+            <button
               onClick={() => selectedJob && fetchRankedCandidates(selectedJob.id)}
               disabled={loading || !selectedJob}
               className="flex items-center gap-2 text-brand-green font-bold hover:bg-emerald-50 px-4 py-2 rounded-xl transition-all disabled:opacity-50"
@@ -101,54 +102,68 @@ const RecruiterDashboard = () => {
 
           <div className="space-y-4">
             {candidates.map((candidate, idx) => (
-              <motion.div 
+              <motion.div
                 key={candidate.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                className="p-6 rounded-2xl border border-gray-100 hover:border-brand-green transition-all flex items-center justify-between group"
+                className="p-6 rounded-2xl border border-gray-100 hover:border-brand-green transition-all flex items-center justify-between group bg-white"
               >
                 <div className="flex items-center gap-6">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-400 uppercase">
-                    {candidate.applicant_name[0]}
+                  <div className="w-12 h-12 bg-brand-green/10 text-brand-green rounded-full flex items-center justify-center font-bold uppercase">
+                    {candidate.applicant_name ? candidate.applicant_name[0] : '?'}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold group-hover:text-brand-green transition-colors">{candidate.applicant_name}</h3>
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-1 max-w-md">
-                      {candidate.match_reason}
-                    </p>
+                    <h3 className="text-lg font-bold group-hover:text-brand-green transition-colors">
+                      {candidate.applicant_name}
+                    </h3>
+                    <div className="flex flex-col gap-1 mt-1">
+                      <p className="text-sm text-gray-500 line-clamp-1 max-w-md">
+                        {candidate.match_reason}
+                      </p>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+                        Status: {candidate.status}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-12">
-                  <div className="text-center">
-                    <div className="text-brand-green font-black text-2xl">{Math.round(candidate.match_score)}%</div>
+                <div className="flex items-center gap-8">
+                  <div className="text-center min-w-[80px]">
+                    <div className="text-brand-green font-black text-2xl">
+                      {Math.round(candidate.match_score)}%
+                    </div>
                     <div className="text-[10px] text-gray-400 uppercase font-bold">Match Score</div>
                   </div>
                   <div className="flex gap-2">
-                    <a 
-                      href={candidate.cv_file} 
-                      target="_blank" 
+                    {/* Accessing the file path from your RankedApplication type */}
+                    <a
+                      href={candidate.cv_file}
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="p-3 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-400 hover:text-brand-green transition-all"
+                      className="p-3 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-400 hover:text-brand-green transition-all flex items-center gap-2"
+                      title="View CV"
                     >
                       <FileText size={20} />
+                      <ExternalLink size={14} />
                     </a>
                     <button className="btn-primary px-6">Review</button>
                   </div>
                 </div>
               </motion.div>
             ))}
-            
+
             {!loading && candidates.length === 0 && selectedJob && (
-              <div className="text-center py-12 text-gray-400">
-                No applications found for this job yet.
+              <div className="text-center py-16 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                <Users className="mx-auto text-gray-300 mb-4" size={48} />
+                <p className="text-gray-400">No applications found for this job yet.</p>
               </div>
             )}
-            
-            {loading && jobs.length > 0 && (
-              <div className="text-center py-12 text-gray-400">
-                AI is ranking candidates...
+
+            {loading && (
+              <div className="text-center py-16">
+                <RefreshCw className="animate-spin text-brand-green mx-auto mb-4" size={32} />
+                <p className="text-gray-500 font-medium">AI is analyzing and ranking candidates...</p>
               </div>
             )}
           </div>

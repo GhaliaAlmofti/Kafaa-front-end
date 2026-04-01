@@ -1,23 +1,32 @@
+// src/utils/authRedirect.ts
 import type { NavigateFunction } from 'react-router-dom';
 import type { MeResponse } from '../services/api';
 
-/** Persists pending verification user id when session cookies are not shared cross-origin. */
 export const SESSION_VERIFY_USER_ID_KEY = 'kafaa_verify_user_id';
 
-/** Client-side role until backend exposes it on User. */
 export function resolveDashboardRole(userData: MeResponse): 'ADMIN' | 'RECRUITER' | 'CANDIDATE' {
-  if (userData.role === 'ADMIN' || userData.role === 'RECRUITER') {
-    return userData.role;
+  // Logic: If username is exactly 'admin', they are the Boss.
+  // Otherwise, they are a Candidate.
+  if (userData.username?.toLowerCase() === 'admin') {
+    return 'ADMIN';
   }
-  if (userData.username === 'admin') return 'ADMIN';
+
+  // You can add other specific usernames here if you have recruiters
+  // if (userData.username === 'hr_manager') return 'RECRUITER';
+
   return 'CANDIDATE';
 }
 
 export function persistUserAndNavigate(navigate: NavigateFunction, userData: MeResponse) {
   const role = resolveDashboardRole(userData);
   const userWithRole = { ...userData, role };
+
+  // Save the "fake" role to localStorage so the rest of the app thinks it's real
   localStorage.setItem('user', JSON.stringify(userWithRole));
-  if (role === 'ADMIN') navigate('/admin');
-  else if (role === 'RECRUITER') navigate('/recruiter-dashboard');
-  else navigate('/dashboard');
+
+  if (role === 'ADMIN') {
+    navigate('/admin');
+  } else {
+    navigate('/dashboard'); // All non-admin users go here
+  }
 }
