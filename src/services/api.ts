@@ -1,4 +1,22 @@
-import { Company, Job, GrowthReport, CV } from '../types';
+import {
+  Company,
+  Job,
+  GrowthReport,
+  CV,
+  AdminJobRow,
+  JobApplication,
+  MyApplication,
+} from '../types';
+
+export type RankedCandidateRow = {
+  id: number;
+  applicant_name: string;
+  match_score: number | null;
+  match_reason: string | null;
+  created_at: string;
+  status: string;
+  cv_file: string | null;
+};
 
 export type LoginCredentials = {
   username: string;
@@ -18,12 +36,12 @@ export type SignupResponse = {
 };
 
 export type MeResponse = {
+  id: number;
   username: string;
+  phone_number: string;
+  is_verified: boolean;
+  role: 'admin' | 'recruiter' | 'candidate';
   profiles: unknown[];
-  id?: number;
-  is_verified?: boolean;
-  phone_number?: string;
-  role?: string;
 };
 
 type BackendCompany = {
@@ -38,23 +56,18 @@ const rawBase =
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
 const API_BASE = rawBase.replace(/\/+$/, '');
 
-const ACCESS_KEY = 'kafaa_access_token';
-const REFRESH_KEY = 'kafaa_refresh_token';
-
 let csrfTokenCache: string | null = null;
 
 function getCookie(name: string) {
-  let cookieValue = null;
   const decodedCookie = decodeURIComponent(document.cookie);
   const cookies = decodedCookie.split(';');
   for (let i = 0; i < cookies.length; i++) {
     const cookie = cookies[i].trim();
-    if (cookie.substring(name.length + 1) === (name + '=')) {
-      cookieValue = cookie.substring(name.length + 1);
-      break;
+    if (cookie.startsWith(name + '=')) {
+      return cookie.substring(name.length + 1);
     }
   }
-  return cookieValue;
+  return null;
 }
 
 function setCsrfFromResponseBody(data: unknown) {
@@ -74,54 +87,19 @@ async function fetchCsrfToken(): Promise<void> {
     if (!res.ok) return;
     const data = await res.json();
     setCsrfFromResponseBody(data);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function clearCsrfTokenCache() {
   csrfTokenCache = null;
 }
 
-export function getStoredAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_KEY);
-}
-
-function getStoredRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_KEY);
-}
-
-export function setStoredTokens(access: string, refresh: string) {
-  localStorage.setItem(ACCESS_KEY, access);
-  localStorage.setItem(REFRESH_KEY, refresh);
-}
-
-export function clearStoredTokens() {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
-}
-
-function saveTokensFromBody(data: unknown) {
-  if (!data || typeof data !== 'object') return;
-  const d = data as Record<string, unknown>;
-  if (typeof d.access === 'string' && typeof d.refresh === 'string') {
-    setStoredTokens(d.access, d.refresh);
-  }
-}
-
-async function refreshAccessToken(): Promise<boolean> {
-  const refresh = getStoredRefreshToken();
-  if (!refresh) return false;
-  try {
-    const res = await fetch(`${API_BASE}/token/refresh/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh }),
-      credentials: 'include',
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    saveTokensFromBody(data);
-    return true;
-  } catch { return false; }
+/** Clears legacy JWT keys if present (session auth is used instead). */
+function clearLegacyJwtKeys() {
+  localStorage.removeItem('kafaa_access_token');
+  localStorage.removeItem('kafaa_refresh_token');
 }
 
 async function request(
@@ -139,7 +117,7 @@ async function request(
 
   const method = (options.method || 'GET').toUpperCase();
   const needsCsrfHeader = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-  
+
   if (needsCsrfHeader && path !== '/csrf/') {
     await fetchCsrfToken();
   }
@@ -149,22 +127,11 @@ async function request(
     headers.set('X-CSRFToken', csrfToken);
   }
 
-  const access = getStoredAccessToken();
-  if (access) {
-    headers.set('Authorization', `Bearer ${access}`);
-  }
-
   const response = await fetch(url, {
     ...options,
     headers,
     credentials: 'include',
   });
-
-  if (response.status === 401 && !retried && path !== '/token/refresh/') {
-    const ok = await refreshAccessToken();
-    if (ok) return request(path, options, true, csrfRetried);
-    clearStoredTokens();
-  }
 
   if (response.status === 403 && needsCsrfHeader && !csrfRetried && path !== '/csrf/') {
     await fetchCsrfToken();
@@ -183,7 +150,6 @@ async function request(
     throw new Error(typeof data === 'object' ? JSON.stringify(data) : data || 'API Error');
   }
 
-  saveTokensFromBody(data);
   setCsrfFromResponseBody(data);
   return data;
 }
@@ -211,70 +177,118 @@ export const api = {
     try {
       await request('/logout/', { method: 'POST' });
     } finally {
-      clearStoredTokens();
+      clearLegacyJwtKeys();
       clearCsrfTokenCache();
     }
   },
 
   getMe: (): Promise<MeResponse> => request('/me/') as Promise<MeResponse>,
 
-  // --- UPDATED CV SECTION ---
-  
-  // Fetches existing CVs from the database
   getUserCV: (): Promise<CV[]> => request('/cvs/') as Promise<CV[]>,
 
-  uploadCV: (formData: FormData): Promise<CV> => 
+  uploadCV: (formData: FormData): Promise<CV> =>
     request('/cvs/upload/', { method: 'POST', body: formData }) as Promise<CV>,
 
-  // Now returns Promise<CV> so we get the ID back after AI parsing
-  parseCV: (id: number): Promise<CV> => 
-    request(`/cvs/${id}/parse/`, { method: 'POST' }) as Promise<CV>,
+  parseCV: async (id: number): Promise<CV> => {
+    const data = (await request(`/cvs/${id}/parse/`, {
+      method: 'POST',
+    })) as { cv?: CV; detail?: string };
+    if (data && typeof data === 'object' && data.cv) {
+      return data.cv;
+    }
+    return data as unknown as CV;
+  },
 
   downloadCV: (id: number) => request(`/cvs/${id}/download/`),
 
-  // --- JOBS & COMPANIES ---
+  downloadCVBlob: async (id: number): Promise<Blob> => {
+    const url = `${API_BASE}/cvs/${id}/download/`;
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) {
+      throw new Error('Could not download CV');
+    }
+    return res.blob();
+  },
 
   listJobs: (): Promise<Job[]> => request('/jobs/') as Promise<Job[]>,
 
+  listMyApplications: (): Promise<MyApplication[]> =>
+    request('/jobs/my-applications/') as Promise<MyApplication[]>,
+
+  listMyJobs: (): Promise<Job[]> => request('/jobs/my/') as Promise<Job[]>,
+
   listCompanies: async (): Promise<Company[]> => {
-    const data = await request('/companies/') as BackendCompany[];
+    const data = (await request('/companies/')) as BackendCompany[];
     return data.map((company) => ({
       id: company.id,
       name: company.name,
       description: company.about,
       company_field: company.company_field,
+      is_blocked: Boolean(company.is_blocked),
     }));
   },
 
-  createCompany: async (data: any): Promise<Company> => {
-    const company = await request('/companies/', {
+  patchCompany: async (id: number, body: { is_blocked: boolean }): Promise<Company> => {
+    const c = (await request(`/companies/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })) as BackendCompany;
+    return {
+      id: c.id,
+      name: c.name,
+      description: c.about,
+      company_field: c.company_field,
+      is_blocked: Boolean(c.is_blocked),
+    };
+  },
+
+  createCompany: async (data: Record<string, unknown>): Promise<Company> => {
+    const company = (await request('/companies/', {
       method: 'POST',
       body: JSON.stringify(data),
-    }) as BackendCompany;
+    })) as BackendCompany;
     return {
       id: company.id,
       name: company.name,
       description: company.about,
       company_field: company.company_field,
+      is_blocked: Boolean(company.is_blocked),
     };
   },
 
-  createJob: (data: any) => {
-    const formattedData = {
-      ...data,
-      job_type: data.job_type.toLowerCase().replace('_', '-')
-    };
-    return request('/jobs/create/', { 
-      method: 'POST', 
-      body: JSON.stringify(formattedData) 
+  listAdminJobs: (): Promise<AdminJobRow[]> =>
+    request('/jobs/admin-list/') as Promise<AdminJobRow[]>,
+
+  listJobApplications: (jobId: number): Promise<JobApplication[]> =>
+    request(`/jobs/${jobId}/applications/`) as Promise<JobApplication[]>,
+
+  patchJobApplication: (applicationId: number, body: { status: JobApplication['status'] }) =>
+    request(`/jobs/applications/${applicationId}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }) as Promise<JobApplication>,
+
+  patchJob: (jobId: number, body: Partial<Pick<Job, 'is_active' | 'title' | 'description' | 'location'>>) =>
+    request(`/jobs/${jobId}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }) as Promise<Job>,
+
+  createJob: (data: Record<string, unknown>) => {
+    const jobType = String((data as { job_type?: string }).job_type || '')
+      .toLowerCase()
+      .replace('_', '-');
+    return request('/jobs/create/', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, job_type: jobType }),
     });
   },
 
   applyJob: (data: { job: number; cv: number }) =>
     request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
 
-  rankCandidates: (jobId: number): Promise<any[]> =>
-    request(`/jobs/${jobId}/rank-candidates/`) as Promise<any[]>,
+  rankCandidates: (jobId: number): Promise<RankedCandidateRow[]> =>
+    request(`/jobs/${jobId}/rank-candidates/`) as Promise<RankedCandidateRow[]>,
 
   getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
     request(`/jobs/applications/${applicationId}/growth-report/`) as Promise<GrowthReport>,

@@ -3,12 +3,14 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { api } from './services/api';
+import { AuthProvider } from './context/AuthContext';
 
-// Ensure CSRF is fetched early (useful for cross-origin APIs where cookies aren't readable).
 api.getCsrf().catch(() => {});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Phone, Lock, User, AlertCircle, Briefcase, UserCircle } from 'lucide-react';
+import { UserPlus, Phone, Lock, User, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { SESSION_VERIFY_USER_ID_KEY } from '../utils/authRedirect';
 
@@ -9,7 +9,6 @@ const Signup = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'CANDIDATE' | 'RECRUITER'>('CANDIDATE');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -25,7 +24,6 @@ const Signup = () => {
         username,
         password,
         phone_number: phone,
-        role,
       });
       sessionStorage.setItem(SESSION_VERIFY_USER_ID_KEY, String(created.user_id));
       navigate('/verify-otp');
@@ -53,8 +51,8 @@ const Signup = () => {
           <div className="w-16 h-16 bg-brand-green rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
             <UserPlus size={32} />
           </div>
-          <h2 className="text-3xl font-bold">Create Account</h2>
-          <p className="text-gray-500 mt-2">Join Libya Match as a Candidate or Recruiter</p>
+          <h2 className="text-3xl font-bold">Create account</h2>
+          <p className="text-gray-500 mt-2">Sign up as a candidate. Recruiter accounts are created by an admin.</p>
         </div>
 
         {error && (
@@ -65,33 +63,6 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSignup} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <button
-              type="button"
-              onClick={() => setRole('CANDIDATE')}
-              className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
-                role === 'CANDIDATE'
-                  ? 'border-brand-green bg-green-50 text-brand-green'
-                  : 'border-gray-100 text-gray-500'
-              }`}
-            >
-              <UserCircle size={24} className="mb-2" />
-              <span className="font-semibold">Candidate</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('RECRUITER')}
-              className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
-                role === 'RECRUITER'
-                  ? 'border-brand-green bg-green-50 text-brand-green'
-                  : 'border-gray-100 text-gray-500'
-              }`}
-            >
-              <Briefcase size={24} className="mb-2" />
-              <span className="font-semibold">Recruiter</span>
-            </button>
-          </div>
-
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-700">Username</label>
             <div className="relative">
@@ -123,7 +94,7 @@ const Signup = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Libyan Phone Number</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Libyan phone number</label>
             <div className="relative">
               <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -138,7 +109,7 @@ const Signup = () => {
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-lg disabled:opacity-50">
-            {loading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? 'Creating account...' : 'Sign up'}
           </button>
         </form>
 

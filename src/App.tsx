@@ -1,4 +1,3 @@
-console.log("Current User in Storage:", localStorage.getItem('user'));
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -6,27 +5,53 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import VerifyOTP from './pages/VerifyOTP';
-import AdminDashboard from './pages/AdminDashboard';
-import CandidateDashboard from './pages/CandidateDashboard';
+import Jobs from './pages/Jobs';
+import CandidateLayout from './layouts/CandidateLayout';
+import CandidateOverview from './pages/candidate/CandidateOverview';
+import CandidateApplicationsPage from './pages/candidate/CandidateApplicationsPage';
+import CandidateCvPage from './pages/candidate/CandidateCvPage';
+import CandidateJobsPage from './pages/candidate/CandidateJobsPage';
+import AdminLayout from './layouts/AdminLayout';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminCompaniesPage from './pages/admin/AdminCompaniesPage';
+import AdminJobsPage from './pages/admin/AdminJobsPage';
+import RecruiterLayout from './layouts/RecruiterLayout';
+import RecruiterIndexPage from './pages/recruiter/RecruiterIndexPage';
+import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
+import { useAuth } from './context/AuthContext';
+import type { UserRole } from './types';
 
-// Updated Protected Route: Determines access based on the "username" 
-// because the backend doesn't have a role field.
-const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
-  const userStr = localStorage.getItem('user');
+const ProtectedRoute = ({
+  children,
+  roles,
+}: {
+  children: React.ReactNode;
+  roles?: UserRole[];
+}) => {
+  const { user, loading } = useAuth();
 
-  // 1. If no user is logged in, send to login
-  if (!userStr) return <Navigate to="/login" />;
-
-  const user = JSON.parse(userStr);
-  const isAdmin = user.username?.toLowerCase() === 'admin';
-
-  // 2. If page requires admin but user is NOT admin, send to user dashboard
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/dashboard" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">
+        Loading…
+      </div>
+    );
   }
 
-  // 3. If a normal user tries to access /login or /signup while logged in (optional but good)
-  // We'll keep it simple for now and just return the children.
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (roles && (!user.role || !roles.includes(user.role))) {
+    if (user.role === 'ADMIN') {
+      return <Navigate to="/admin" replace />;
+    }
+    if (user.role === 'RECRUITER') {
+      return <Navigate to="/recruiter" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -38,53 +63,78 @@ export default function App() {
 
         <main className="flex-grow pt-20">
           <Routes>
-            {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/verify-otp" element={<VerifyOTP />} />
+            <Route path="/jobs" element={<Jobs />} />
 
-            {/* Admin Dashboard - Strictly for username 'admin' */}
             <Route
               path="/admin"
               element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminDashboard />
+                <ProtectedRoute roles={['ADMIN']}>
+                  <AdminLayout />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<AdminOverview />} />
+              <Route path="companies" element={<AdminCompaniesPage />} />
+              <Route path="jobs" element={<AdminJobsPage />} />
+            </Route>
 
-            {/* Candidate Dashboard - For everyone else */}
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
-                  <CandidateDashboard />
+                <ProtectedRoute roles={['CANDIDATE']}>
+                  <CandidateLayout />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<CandidateOverview />} />
+              <Route path="applications" element={<CandidateApplicationsPage />} />
+              <Route path="cv" element={<CandidateCvPage />} />
+              <Route path="jobs" element={<CandidateJobsPage />} />
+            </Route>
 
-            {/* Catch-all Fallback: 
-                If logged in as admin, go to admin. 
-                If logged in as user, go to dashboard. 
-                Otherwise, go home. */}
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route
+              path="/recruiter"
+              element={
+                <ProtectedRoute roles={['RECRUITER']}>
+                  <RecruiterLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<RecruiterIndexPage />} />
+              <Route path="jobs/:jobId" element={<RecruiterJobDetailPage />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
         <footer className="bg-brand-black text-white py-12 border-t border-white/10">
           <div className="container mx-auto px-6 text-center">
             <div className="flex items-center justify-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center text-white font-bold">C</div>
+              <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center text-white font-bold">
+                C
+              </div>
               <span className="text-xl font-black tracking-tighter text-white">
                 CAREER<span className="text-brand-green">VISION</span>
               </span>
             </div>
-            <p className="text-gray-500 text-sm mb-8">© 2026 Career Vision. Building the future of Libyan recruitment.</p>
+            <p className="text-gray-500 text-sm mb-8">
+              © 2026 Career Vision. Building the future of Libyan recruitment.
+            </p>
             <div className="flex justify-center gap-8 text-gray-400 text-sm">
-              <a href="#" className="hover:text-brand-green transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-brand-green transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-brand-green transition-colors">Contact Us</a>
+              <a href="#" className="hover:text-brand-green transition-colors">
+                Privacy Policy
+              </a>
+              <a href="#" className="hover:text-brand-green transition-colors">
+                Terms of Service
+              </a>
+              <a href="#" className="hover:text-brand-green transition-colors">
+                Contact Us
+              </a>
             </div>
           </div>
         </footer>

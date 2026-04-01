@@ -3,13 +3,15 @@ import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
-import { persistUserAndNavigate, SESSION_VERIFY_USER_ID_KEY } from '../utils/authRedirect';
+import { meResponseToUser, navigateAfterAuth } from '../utils/authRedirect';
+import { useAuth } from '../context/AuthContext';
 
 const VerifyOTP = () => {
   const [otp, setOtp] = useState(['', '', '', '']);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { verifyOtp: verifyOtpCtx } = useAuth();
 
   const handleChange = (element: HTMLInputElement, index: number) => {
     if (element.value !== '' && isNaN(Number(element.value))) return;
@@ -27,14 +29,11 @@ const VerifyOTP = () => {
     setLoading(true);
 
     const otpCode = otp.join('');
-    const rawId = sessionStorage.getItem(SESSION_VERIFY_USER_ID_KEY);
-    const userId = rawId ? parseInt(rawId, 10) : undefined;
 
     try {
-      await api.verifyOtp(otpCode, Number.isFinite(userId) ? userId : undefined);
-      sessionStorage.removeItem(SESSION_VERIFY_USER_ID_KEY);
+      await verifyOtpCtx(otpCode);
       const userData = await api.getMe();
-      persistUserAndNavigate(navigate, userData);
+      navigateAfterAuth(navigate, meResponseToUser(userData));
     } catch {
       setError('Invalid code. Please try again (Default: 0000)');
     } finally {

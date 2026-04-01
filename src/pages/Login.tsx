@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
-import { persistUserAndNavigate, SESSION_VERIFY_USER_ID_KEY } from '../utils/authRedirect';
+import { SESSION_VERIFY_USER_ID_KEY, meResponseToUser, navigateAfterAuth } from '../utils/authRedirect';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -11,6 +12,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +30,9 @@ const Login = () => {
         return;
       }
 
+      await refreshUser();
       const userData = await api.getMe();
-      persistUserAndNavigate(navigate, userData);
+      navigateAfterAuth(navigate, meResponseToUser(userData));
     } catch (err: unknown) {
       try {
         const msg = err instanceof Error ? err.message : String(err);
