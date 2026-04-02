@@ -1,17 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { FileText, Download, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { FileText, Download, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
 import CVUpload from '../../components/CVUpload';
 import type { CV } from '../../types';
 import type { CandidateLayoutContext } from '../../layouts/CandidateLayout';
+
+function cvParseError(cv: CV): string | null {
+  if (cv.is_parsed) return null;
+  const pd = cv.parsed_data;
+  if (pd && typeof pd === 'object' && 'error' in pd && typeof (pd as { error?: unknown }).error === 'string') {
+    return (pd as { error: string }).error;
+  }
+  return null;
+}
 
 const CandidateCvPage = () => {
   const { selectedCvId, setSelectedCvId } = useOutletContext<CandidateLayoutContext>();
   const [cvs, setCvs] = useState<CV[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [parsingCvId, setParsingCvId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -31,19 +39,6 @@ const CandidateCvPage = () => {
   useEffect(() => {
     load();
   }, [load]);
-
-  const handleParseCv = async (cvId: number) => {
-    try {
-      setParsingCvId(cvId);
-      setError('');
-      const updated = await api.parseCV(cvId);
-      setCvs((prev) => prev.map((c) => (c.id === cvId ? updated : c)));
-    } catch {
-      setError('Could not parse this CV. Try again later.');
-    } finally {
-      setParsingCvId(null);
-    }
-  };
 
   const handleDownloadCv = async (cvId: number) => {
     try {
@@ -75,7 +70,8 @@ const CandidateCvPage = () => {
           <FileText className="text-brand-green" size={28} /> My CV
         </h1>
         <p className="text-gray-500 mt-2 text-sm">
-          Upload, parse with AI, and set the default CV used when you apply from Find jobs.
+          Upload a file — we analyze it automatically. Choose your default CV for applications on
+          Find jobs.
         </p>
       </header>
 
@@ -108,54 +104,50 @@ const CandidateCvPage = () => {
                 {cvs.map((cv) => (
                   <option key={cv.id} value={cv.id}>
                     CV #{cv.id}
-                    {cv.is_parsed ? ' · parsed' : ' · not parsed'}
+                    {cv.is_parsed ? ' · analyzed' : ' · not analyzed'}
                   </option>
                 ))}
               </select>
             </div>
             <ul className="mt-6 space-y-3">
-              {cvs.map((cv) => (
-                <li
-                  key={cv.id}
-                  className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-gray-100 bg-gray-50/50"
-                >
-                  <div>
-                    <p className="font-bold text-brand-black">CV #{cv.id}</p>
-                    <p className="text-xs text-gray-500">
-                      Uploaded {new Date(cv.uploaded_at).toLocaleString()} ·{' '}
-                      {cv.is_parsed ? (
-                        <span className="text-emerald-600 font-semibold">Ready for ranking</span>
-                      ) : (
-                        <span className="text-amber-600 font-semibold">Parse recommended</span>
+              {cvs.map((cv) => {
+                const parseErr = cvParseError(cv);
+                return (
+                  <li
+                    key={cv.id}
+                    className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-gray-100 bg-gray-50/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-brand-black">CV #{cv.id}</p>
+                      <p className="text-xs text-gray-500">
+                        Uploaded {new Date(cv.uploaded_at).toLocaleString()} ·{' '}
+                        {cv.is_parsed ? (
+                          <span className="text-emerald-600 font-semibold">Ready to apply</span>
+                        ) : (
+                          <span className="text-amber-600 font-semibold">Analysis did not complete</span>
+                        )}
+                      </p>
+                      {parseErr && (
+                        <p className="text-xs text-red-600 mt-1">{parseErr}</p>
                       )}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadCv(cv.id)}
-                      className="text-xs font-bold px-3 py-2 rounded-xl border border-gray-200 hover:border-brand-green flex items-center gap-1"
-                    >
-                      <Download size={14} /> Download
-                    </button>
-                    {!cv.is_parsed && (
+                      {!cv.is_parsed && !parseErr && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Try uploading again with a clearer PDF or DOCX.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        disabled={parsingCvId === cv.id}
-                        onClick={() => void handleParseCv(cv.id)}
-                        className="text-xs font-bold px-3 py-2 rounded-xl bg-brand-green text-white hover:bg-opacity-90 flex items-center gap-1 disabled:opacity-50"
+                        onClick={() => void handleDownloadCv(cv.id)}
+                        className="text-xs font-bold px-3 py-2 rounded-xl border border-gray-200 hover:border-brand-green flex items-center gap-1"
                       >
-                        {parsingCvId === cv.id ? (
-                          <Loader2 className="animate-spin" size={14} />
-                        ) : (
-                          <Sparkles size={14} />
-                        )}
-                        Parse CV
+                        <Download size={14} /> Download
                       </button>
-                    )}
-                  </div>
-                </li>
-              ))}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

@@ -47,7 +47,7 @@ const CandidateOverview = () => {
 
   const quick = [
     { to: '/dashboard/applications', title: 'My applications', desc: `${myApps.length} total` },
-    { to: '/dashboard/cv', title: 'CV & parsing', desc: `${cvs.length} file(s)` },
+    { to: '/dashboard/cv', title: 'My CV', desc: `${cvs.length} file(s)` },
     { to: '/dashboard/jobs', title: 'Find jobs', desc: `${jobs.length} open roles` },
   ];
 
@@ -66,10 +66,11 @@ const CandidateOverview = () => {
           <p className="font-bold text-brand-black">How it works</p>
           <ol className="list-decimal list-inside space-y-1 text-gray-600">
             <li>
-              Upload a CV and run <strong>AI analysis</strong> so employers can rank you fairly.
+              Upload a CV — we run <strong>AI analysis</strong> automatically so employers can compare
+              applicants fairly.
             </li>
             <li>Pick which CV to attach when you apply — you can keep several versions.</li>
-            <li>Track applications; match scores appear after the company runs AI ranking.</li>
+            <li>Track applications; match scores update when you apply (if your CV was analyzed).</li>
             <li>
               If marked <strong>rejected</strong>, open your growth report from Applications.
             </li>
@@ -91,7 +92,7 @@ const CandidateOverview = () => {
           <p className="text-2xl font-black text-brand-black">{cvs.length}</p>
         </div>
         <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-          <p className="text-[10px] font-black uppercase text-gray-400">Parsed</p>
+          <p className="text-[10px] font-black uppercase text-gray-400">Analyzed</p>
           <p className="text-2xl font-black text-emerald-600">{parsedCvCount}</p>
         </div>
       </div>

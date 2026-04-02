@@ -18,7 +18,7 @@ const RecruiterIndexPage = () => {
     <div className="p-6 md:p-8 max-w-6xl mx-auto">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-brand-black">Recruitment command center</h1>
-        <p className="text-gray-500 mt-1">Your job posts, applicants, and AI ranking</p>
+        <p className="text-gray-500 mt-1">Your job posts, applicants, and match scores</p>
       </header>
 
       <div className="mb-8 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 flex gap-4">
@@ -27,10 +27,11 @@ const RecruiterIndexPage = () => {
           <p className="font-bold text-brand-black">How it works</p>
           <ol className="list-decimal list-inside space-y-1 text-gray-600">
             <li>Candidates apply from the public job board using an uploaded CV.</li>
-            <li>They should parse their CV so you can rank them and see skill signals.</li>
+            <li>Candidates&apos; CVs are analyzed automatically when they upload.</li>
             <li>Open a job below to load applications, update status, and open CVs.</li>
             <li>
-              Use <strong>Run AI ranking</strong> on the job page to score applicants with parsed CVs.
+              <strong>Match scores</strong> are computed when someone applies (for analyzed CVs) and
+              shown on the job page.
             </li>
             <li>
               Close a listing anytime with <strong>Close listing</strong> — it stays in your list.

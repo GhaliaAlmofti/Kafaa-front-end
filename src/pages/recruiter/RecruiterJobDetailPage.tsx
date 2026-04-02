@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Users,
   Briefcase,
-  Trophy,
   AlertCircle,
   Loader2,
   ExternalLink,
@@ -29,7 +28,6 @@ const RecruiterJobDetailPage = () => {
   const job = Number.isFinite(id) ? jobs.find((j) => j.id === id) : undefined;
 
   const [error, setError] = useState('');
-  const [rankingId, setRankingId] = useState<number | null>(null);
   const [expandedApps, setExpandedApps] = useState(true);
   const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
@@ -63,22 +61,13 @@ const RecruiterJobDetailPage = () => {
     void loadApplications(id);
   }, [id, layoutLoading, loadApplications]);
 
-  const handleRunAILogic = async () => {
-    if (!job) return;
-    try {
-      setRankingId(job.id);
-      setError('');
-      const rankedData = await api.rankCandidates(job.id);
-      setJobs((prev) =>
-        prev.map((j) => (j.id === job.id ? { ...j, applications: rankedData } : j)),
-      );
-      await loadApplications(job.id);
-    } catch {
-      setError('AI ranking failed. Ensure applicants have parsed CVs.');
-    } finally {
-      setRankingId(null);
-    }
-  };
+  const scoredApps = useMemo(() => {
+    return [...jobApplications]
+      .filter((a) => a.match_score != null)
+      .sort((a, b) => (b.match_score ?? 0) - (a.match_score ?? 0));
+  }, [jobApplications]);
+
+  const hasAnyScore = scoredApps.length > 0;
 
   const handleStatus = async (appId: number, status: JobApplication['status']) => {
     if (!job) return;
@@ -197,19 +186,6 @@ const RecruiterJobDetailPage = () => {
               {expandedApps ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               {expandedApps ? 'Hide' : 'Show'} applications
             </button>
-            <button
-              type="button"
-              onClick={() => void handleRunAILogic()}
-              disabled={rankingId === job.id}
-              className="flex items-center gap-2 bg-brand-green text-white px-5 py-2 rounded-xl font-bold hover:bg-opacity-90 disabled:bg-gray-300 transition-all text-sm"
-            >
-              {rankingId === job.id ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                <Trophy size={18} />
-              )}
-              {rankingId === job.id ? 'Ranking…' : 'Run AI ranking'}
-            </button>
           </div>
         </div>
 
@@ -299,11 +275,12 @@ const RecruiterJobDetailPage = () => {
 
         <div className="p-6 bg-gray-50/30">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-            AI-ranked view (after running ranking)
+            Match scores (by apply order analysis)
           </p>
-          {!job.applications || job.applications.length === 0 ? (
+          {!hasAnyScore ? (
             <div className="text-center py-8 text-gray-400 italic text-sm">
-              Run AI ranking to see scored rows here (parsed CVs only).
+              Scores appear when candidates with analyzed CVs apply. They update automatically on
+              each new application.
             </div>
           ) : (
             <div className="grid gap-4">
@@ -314,66 +291,64 @@ const RecruiterJobDetailPage = () => {
                 <div className="col-span-1 text-right">CV</div>
               </div>
 
-              {[...job.applications]
-                .sort((a, b) => (b.match_score ?? 0) - (a.match_score ?? 0))
-                .map((app) => (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={app.id}
-                    className="grid grid-cols-12 items-center bg-white p-4 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow gap-2"
-                  >
-                    <div className="col-span-5 flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 bg-brand-black rounded-full flex items-center justify-center text-white font-bold shrink-0">
-                        {app.applicant_name?.charAt(0) || 'C'}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-brand-black truncate">
-                          {app.applicant_name || `Candidate #${app.id}`}
-                        </p>
-                        <p className="text-[10px] text-gray-400">
-                          {app.status} · {new Date(app.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
+              {scoredApps.map((app) => (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  key={app.id}
+                  className="grid grid-cols-12 items-center bg-white p-4 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow gap-2"
+                >
+                  <div className="col-span-5 flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-brand-black rounded-full flex items-center justify-center text-white font-bold shrink-0">
+                      {app.applicant_name?.charAt(0) || 'C'}
                     </div>
-
-                    <div className="col-span-2 text-center">
-                      <div
-                        className={`inline-block px-3 py-1 rounded-full font-black text-sm ${
-                          (app.match_score ?? 0) >= 80
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : (app.match_score ?? 0) >= 50
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {app.match_score != null ? `${app.match_score}%` : 'N/A'}
-                      </div>
-                    </div>
-
-                    <div className="col-span-4 min-w-0">
-                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                        {app.match_reason || '—'}
+                    <div className="min-w-0">
+                      <p className="font-bold text-brand-black truncate">
+                        {app.applicant_name || `Candidate #${app.id}`}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {app.status} · {new Date(app.applied_at).toLocaleDateString()}
                       </p>
                     </div>
+                  </div>
 
-                    <div className="col-span-1 text-right">
-                      {app.cv_file ? (
-                        <a
-                          href={app.cv_file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 inline-flex hover:bg-gray-100 rounded-lg text-gray-400 hover:text-brand-green"
-                          title="Open CV"
-                        >
-                          <ExternalLink size={18} />
-                        </a>
-                      ) : (
-                        <span className="text-gray-300 text-xs">—</span>
-                      )}
+                  <div className="col-span-2 text-center">
+                    <div
+                      className={`inline-block px-3 py-1 rounded-full font-black text-sm ${
+                        (app.match_score ?? 0) >= 80
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : (app.match_score ?? 0) >= 50
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {app.match_score != null ? `${app.match_score}%` : 'N/A'}
                     </div>
-                  </motion.div>
-                ))}
+                  </div>
+
+                  <div className="col-span-4 min-w-0">
+                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                      {app.match_reason || '—'}
+                    </p>
+                  </div>
+
+                  <div className="col-span-1 text-right">
+                    {app.cv_file ? (
+                      <a
+                        href={app.cv_file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 inline-flex hover:bg-gray-100 rounded-lg text-gray-400 hover:text-brand-green"
+                        title="Open CV"
+                      >
+                        <ExternalLink size={18} />
+                      </a>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           )}
         </div>

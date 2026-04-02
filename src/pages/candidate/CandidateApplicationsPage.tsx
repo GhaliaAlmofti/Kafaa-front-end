@@ -65,7 +65,8 @@ const CandidateApplicationsPage = () => {
           <Send className="text-brand-green" size={28} /> My applications
         </h1>
         <p className="text-gray-500 mt-2 text-sm">
-          Status updates come from recruiters. Match scores appear after they run AI ranking.
+          Status updates come from recruiters. Match scores appear after you apply (with an analyzed
+          CV).
         </p>
       </header>
 

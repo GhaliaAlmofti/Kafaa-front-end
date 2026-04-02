@@ -8,16 +8,6 @@ import {
   MyApplication,
 } from '../types';
 
-export type RankedCandidateRow = {
-  id: number;
-  applicant_name: string;
-  match_score: number | null;
-  match_reason: string | null;
-  created_at: string;
-  status: string;
-  cv_file: string | null;
-};
-
 export type LoginCredentials = {
   username: string;
   password: string;
@@ -189,16 +179,6 @@ export const api = {
   uploadCV: (formData: FormData): Promise<CV> =>
     request('/cvs/upload/', { method: 'POST', body: formData }) as Promise<CV>,
 
-  parseCV: async (id: number): Promise<CV> => {
-    const data = (await request(`/cvs/${id}/parse/`, {
-      method: 'POST',
-    })) as { cv?: CV; detail?: string };
-    if (data && typeof data === 'object' && data.cv) {
-      return data.cv;
-    }
-    return data as unknown as CV;
-  },
-
   downloadCV: (id: number) => request(`/cvs/${id}/download/`),
 
   downloadCVBlob: async (id: number): Promise<Blob> => {
@@ -286,9 +266,6 @@ export const api = {
 
   applyJob: (data: { job: number; cv: number }) =>
     request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
-
-  rankCandidates: (jobId: number): Promise<RankedCandidateRow[]> =>
-    request(`/jobs/${jobId}/rank-candidates/`) as Promise<RankedCandidateRow[]>,
 
   getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
     request(`/jobs/applications/${applicationId}/growth-report/`) as Promise<GrowthReport>,
