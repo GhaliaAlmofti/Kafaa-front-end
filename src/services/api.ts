@@ -6,7 +6,9 @@ import {
   AdminJobRow,
   JobApplication,
   MyApplication,
+  Profile,
 } from '../types';
+import { formatApiErrorBody } from '../utils/apiErrorMessage';
 
 export type LoginCredentials = {
   username: string;
@@ -31,7 +33,8 @@ export type MeResponse = {
   phone_number: string;
   is_verified: boolean;
   role: 'admin' | 'recruiter' | 'candidate';
-  profiles: unknown[];
+  avatar?: string | null;
+  profiles: Profile[];
 };
 
 type BackendCompany = {
@@ -40,7 +43,27 @@ type BackendCompany = {
   about: string;
   company_field: string;
   is_blocked?: boolean;
+  logo?: string | null;
+  website?: string;
+  linkedin_url?: string;
+  twitter_url?: string;
+  facebook_url?: string;
 };
+
+function mapCompany(company: BackendCompany): Company {
+  return {
+    id: company.id,
+    name: company.name,
+    description: company.about,
+    company_field: company.company_field,
+    is_blocked: Boolean(company.is_blocked),
+    logo_url: company.logo ?? null,
+    website: company.website || undefined,
+    linkedin_url: company.linkedin_url || undefined,
+    twitter_url: company.twitter_url || undefined,
+    facebook_url: company.facebook_url || undefined,
+  };
+}
 
 const rawBase =
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
@@ -137,7 +160,11 @@ async function request(
       : await response.text();
 
   if (!response.ok) {
-    throw new Error(typeof data === 'object' ? JSON.stringify(data) : data || 'API Error');
+    const message =
+      typeof data === 'object' && data !== null
+        ? formatApiErrorBody(data)
+        : formatApiErrorBody(typeof data === 'string' ? data : null, 'Request failed');
+    throw new Error(message);
   }
 
   setCsrfFromResponseBody(data);
@@ -174,10 +201,48 @@ export const api = {
 
   getMe: (): Promise<MeResponse> => request('/me/') as Promise<MeResponse>,
 
+  patchMe: (
+    body: Partial<{ username: string; phone_number: string }> & { avatar?: File | null },
+  ): Promise<MeResponse> => {
+    const avatarFile = body.avatar;
+    if (avatarFile instanceof File) {
+      const fd = new FormData();
+      if (body.username != null) fd.append('username', String(body.username).trim());
+      if (body.phone_number != null) fd.append('phone_number', String(body.phone_number).trim());
+      fd.append('avatar', avatarFile);
+      return request('/me/', { method: 'PATCH', body: fd }) as Promise<MeResponse>;
+    }
+    const { avatar: _omit, ...rest } = body;
+    return request('/me/', { method: 'PATCH', body: JSON.stringify(rest) }) as Promise<MeResponse>;
+  },
+
+  patchProfile: (
+    id: number,
+    body: Partial<Pick<Profile, 'major' | 'city' | 'bio'>>,
+  ): Promise<Profile> =>
+    request(`/profile/${id}/`, { method: 'PATCH', body: JSON.stringify(body) }) as Promise<Profile>,
+
   getUserCV: (): Promise<CV[]> => request('/cvs/') as Promise<CV[]>,
 
   uploadCV: (formData: FormData): Promise<CV> =>
     request('/cvs/upload/', { method: 'POST', body: formData }) as Promise<CV>,
+
+  /** Replace file for an existing CV (same user); re-runs analysis. */
+  replaceCV: (id: number, file: File): Promise<CV> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request(`/cvs/${id}/`, { method: 'PATCH', body: fd }) as Promise<CV>;
+  },
+
+  /** Rename CV (JSON PATCH). */
+  patchCVDisplayName: (id: number, display_name: string): Promise<CV> =>
+    request(`/cvs/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ display_name }),
+    }) as Promise<CV>,
+
+  /** Delete CV if it has no job applications (backend enforces). */
+  deleteCV: (id: number): Promise<void> => request(`/cvs/${id}/`, { method: 'DELETE' }) as Promise<void>,
 
   downloadCV: (id: number) => request(`/cvs/${id}/download/`),
 
@@ -199,13 +264,46 @@ export const api = {
 
   listCompanies: async (): Promise<Company[]> => {
     const data = (await request('/companies/')) as BackendCompany[];
-    return data.map((company) => ({
-      id: company.id,
-      name: company.name,
-      description: company.about,
-      company_field: company.company_field,
-      is_blocked: Boolean(company.is_blocked),
-    }));
+    return data.map(mapCompany);
+  },
+
+  getMyCompany: async (): Promise<Company> => {
+    const c = (await request('/companies/me/')) as BackendCompany;
+    return mapCompany(c);
+  },
+
+  patchMyCompany: async (
+    body: Partial<{
+      name: string;
+      about: string;
+      company_field: string;
+      website: string;
+      linkedin_url: string;
+      twitter_url: string;
+      facebook_url: string;
+    }> & { logo?: File | null },
+  ): Promise<Company> => {
+    const logoFile = body.logo;
+    const hasLogo = logoFile instanceof File;
+    if (hasLogo) {
+      const fd = new FormData();
+      (Object.entries(body) as [string, unknown][]).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (key === 'logo') {
+          if (value instanceof File) fd.append('logo', value);
+          return;
+        }
+        fd.append(key, String(value));
+      });
+      const c = (await request('/companies/me/', { method: 'PATCH', body: fd })) as BackendCompany;
+      return mapCompany(c);
+    }
+    const { logo: _omit, ...rest } = body;
+    const c = (await request('/companies/me/', {
+      method: 'PATCH',
+      body: JSON.stringify(rest),
+    })) as BackendCompany;
+    return mapCompany(c);
   },
 
   patchCompany: async (id: number, body: { is_blocked: boolean }): Promise<Company> => {
@@ -213,27 +311,28 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     })) as BackendCompany;
-    return {
-      id: c.id,
-      name: c.name,
-      description: c.about,
-      company_field: c.company_field,
-      is_blocked: Boolean(c.is_blocked),
-    };
+    return mapCompany(c);
   },
 
-  createCompany: async (data: Record<string, unknown>): Promise<Company> => {
+  createCompany: async (
+    data: Record<string, unknown> & { logo?: File | null },
+  ): Promise<Company> => {
+    const { logo, ...fields } = data;
+    if (logo instanceof File) {
+      const fd = new FormData();
+      Object.entries(fields).forEach(([k, v]) => {
+        if (v === undefined || v === null) return;
+        fd.append(k, String(v));
+      });
+      fd.append('logo', logo);
+      const company = (await request('/companies/', { method: 'POST', body: fd })) as BackendCompany;
+      return mapCompany(company);
+    }
     const company = (await request('/companies/', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(fields),
     })) as BackendCompany;
-    return {
-      id: company.id,
-      name: company.name,
-      description: company.about,
-      company_field: company.company_field,
-      is_blocked: Boolean(company.is_blocked),
-    };
+    return mapCompany(company);
   },
 
   listAdminJobs: (): Promise<AdminJobRow[]> =>

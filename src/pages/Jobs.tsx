@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Briefcase, MapPin, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Briefcase, MapPin, Search, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { formatPostedDate } from '../utils/formatPostedDate';
 import { api } from '../services/api';
 import type { Job } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -57,14 +58,14 @@ const Jobs = () => {
         <p className="text-gray-500 mb-6">
           Open roles from verified companies.{' '}
           {user?.role === 'CANDIDATE' ? (
-            <Link to="/dashboard" className="text-brand-green font-semibold hover:underline">
+            <Link to="/dashboard" className="text-brand-primary font-semibold hover:underline">
               Go to your dashboard to apply with a CV
             </Link>
           ) : user ? (
             <span className="text-gray-400">Switch to a candidate account to apply.</span>
           ) : (
             <>
-              <Link to="/login" className="text-brand-green font-semibold hover:underline">
+              <Link to="/login" className="text-brand-primary font-semibold hover:underline">
                 Sign in
               </Link>{' '}
               as a candidate to apply.
@@ -104,9 +105,25 @@ const Jobs = () => {
             return (
               <article
                 key={job.id}
-                className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col"
+                className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col"
               >
-                <h2 className="text-lg font-bold text-brand-black">{job.title}</h2>
+                <div className="flex items-start gap-3">
+                  {job.company_logo ? (
+                    <img
+                      src={job.company_logo}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover border border-gray-100 shrink-0 bg-gray-50"
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    {job.company_name && (
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-0.5">
+                        {job.company_name}
+                      </p>
+                    )}
+                    <h2 className="text-lg font-bold text-brand-black">{job.title}</h2>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-3 text-sm text-gray-500 mt-2">
                   <span className="flex items-center gap-1">
                     <MapPin size={14} />
@@ -116,6 +133,12 @@ const Jobs = () => {
                     <Briefcase size={14} />
                     {job.job_type}
                   </span>
+                  {job.created_at && (
+                    <span className="flex items-center gap-1 text-gray-400">
+                      <Calendar size={14} aria-hidden />
+                      {formatPostedDate(job.created_at)}
+                    </span>
+                  )}
                 </div>
                 <p className={`text-sm text-gray-600 mt-3 ${expanded ? '' : 'line-clamp-4'}`}>
                   {job.description}
@@ -123,7 +146,7 @@ const Jobs = () => {
                 <button
                   type="button"
                   onClick={() => setExpandedId(expanded ? null : job.id)}
-                  className="mt-2 text-xs font-bold text-brand-green hover:underline self-start flex items-center gap-1"
+                  className="mt-2 text-xs font-bold text-brand-primary hover:underline self-start flex items-center gap-1"
                 >
                   {expanded ? (
                     <>
@@ -144,7 +167,7 @@ const Jobs = () => {
             No listings match your search.{' '}
             <button
               type="button"
-              className="text-brand-green font-semibold"
+              className="text-brand-primary font-semibold"
               onClick={() => {
                 setSearch('');
                 setTypeFilter('');

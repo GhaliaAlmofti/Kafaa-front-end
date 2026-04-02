@@ -6,7 +6,9 @@ export interface User {
   phone_number: string;
   is_verified: boolean;
   role?: UserRole;
-  profiles?: unknown[];
+  /** Absolute URL from API (`avatar` on backend). */
+  avatar_url?: string | null;
+  profiles?: Profile[];
 }
 
 export interface Profile {
@@ -21,7 +23,12 @@ export interface Company {
   name: string;
   description: string;
   company_field?: string;
+  /** Absolute URL from API (`logo` on backend). */
+  logo_url?: string | null;
   website?: string;
+  linkedin_url?: string;
+  twitter_url?: string;
+  facebook_url?: string;
   is_blocked?: boolean;
 }
 
@@ -34,6 +41,9 @@ export interface Job {
   job_type: 'full-time' | 'part-time' | 'internship' | 'freelance';
   created_at: string;
   is_active?: boolean;
+  company_name?: string | null;
+  /** Absolute URL from API (`company_logo`). */
+  company_logo?: string | null;
 }
 
 /** Admin job list row with aggregates (from GET /jobs/admin-list/) */
@@ -47,6 +57,8 @@ export interface CV {
   id: number;
   user: number;
   file: string;
+  /** User-visible label (defaults to uploaded file name; editable). */
+  display_name: string;
   parsed_data: any;
   is_parsed: boolean;
   uploaded_at: string;

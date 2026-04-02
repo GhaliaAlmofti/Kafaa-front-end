@@ -45,10 +45,10 @@ const Signup = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-xl bg-white p-10 rounded-3xl shadow-xl border border-gray-100"
+        className="w-full max-w-xl bg-white p-10 rounded-3xl border border-gray-100"
       >
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-brand-green rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
+          <div className="w-16 h-16 bg-brand-primary rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
             <UserPlus size={32} />
           </div>
           <h2 className="text-3xl font-bold">Create account</h2>
@@ -115,7 +115,7 @@ const Signup = () => {
 
         <div className="mt-8 text-center text-sm text-gray-500">
           Already have an account?{' '}
-          <Link to="/login" className="text-brand-green font-bold hover:underline">
+          <Link to="/login" className="text-brand-primary font-bold hover:underline">
             Sign in
           </Link>
         </div>

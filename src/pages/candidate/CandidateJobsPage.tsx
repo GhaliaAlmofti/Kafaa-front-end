@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Briefcase,
@@ -9,20 +9,25 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  Calendar,
+  Loader2,
+  FileText,
+  Zap,
 } from 'lucide-react';
+import { formatPostedDate } from '../../utils/formatPostedDate';
 import { api } from '../../services/api';
+import PageLayout from '../../components/PageLayout';
 import type { Job, MyApplication } from '../../types';
-import type { CandidateLayoutContext } from '../../layouts/CandidateLayout';
 
 const CandidateJobsPage = () => {
-  const { selectedCvId, setSelectedCvId } = useOutletContext<CandidateLayoutContext>();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [myApps, setMyApps] = useState<MyApplication[]>([]);
   const [cvs, setCvs] = useState<{ id: number; is_parsed: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [applyMsg, setApplyMsg] = useState<{ jobId: number; ok: boolean; text: string } | null>(
-    null,
-  );
+  const [applyModalJob, setApplyModalJob] = useState<Job | null>(null);
+  const [modalCvId, setModalCvId] = useState<number | null>(null);
+  const [applySubmitting, setApplySubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
   const [jobSearch, setJobSearch] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
@@ -38,15 +43,12 @@ const CandidateJobsPage = () => {
       setJobs(jobsData);
       setMyApps(appsData);
       setCvs(cvData.map((c) => ({ id: c.id, is_parsed: c.is_parsed })));
-      if (cvData.length > 0) {
-        setSelectedCvId((prev) => prev ?? cvData[0].id);
-      }
     } catch {
       setJobs([]);
     } finally {
       setLoading(false);
     }
-  }, [setSelectedCvId]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -67,88 +69,80 @@ const CandidateJobsPage = () => {
     });
   }, [jobs, jobSearch, jobTypeFilter]);
 
-  const handleApply = async (jobId: number) => {
-    setApplyMsg(null);
-    if (selectedCvId == null) {
-      setApplyMsg({ jobId, ok: false, text: 'Upload a CV on the My CV tab first.' });
-      return;
-    }
+  const openEasyApplyModal = (job: Job) => {
+    setModalError('');
+    setApplyModalJob(job);
+    const preferred = cvs.find((c) => c.is_parsed)?.id ?? cvs[0]?.id ?? null;
+    setModalCvId(preferred);
+  };
+
+  const closeApplyModal = () => {
+    if (applySubmitting) return;
+    setApplyModalJob(null);
+    setModalError('');
+    setModalCvId(null);
+  };
+
+  const submitEasyApply = async () => {
+    if (!applyModalJob || modalCvId == null) return;
+    setModalError('');
     try {
-      await api.applyJob({ job: jobId, cv: selectedCvId });
-      setApplyMsg({ jobId, ok: true, text: 'Application submitted.' });
+      setApplySubmitting(true);
+      await api.applyJob({ job: applyModalJob.id, cv: modalCvId });
       setMyApps(await api.listMyApplications());
+      setApplyModalJob(null);
+      setModalCvId(null);
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Apply failed';
-      let text = raw;
-      try {
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        text = Object.values(parsed).flat().join(' ') || text;
-      } catch {
-        /* keep */
-      }
-      setApplyMsg({ jobId, ok: false, text });
+      setModalError(raw);
+    } finally {
+      setApplySubmitting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="p-8 flex justify-center text-gray-500">Loading jobs…</div>
+      <PageLayout.Shell maxWidth="wide">
+        <div className="flex justify-center min-h-[40vh] items-center text-gray-500 gap-2">
+          <Loader2 className="animate-spin" size={22} aria-hidden />
+          Loading jobs…
+        </div>
+      </PageLayout.Shell>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold text-brand-black">Find jobs</h1>
-        <p className="text-gray-500 mt-2 text-sm">
-          Search open roles and apply with your default CV (
-          {selectedCvId != null ? `CV #${selectedCvId}` : 'none selected — set on My CV'}).
-        </p>
-      </header>
-
-      {cvs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="text-gray-600">Apply using:</span>
+    <PageLayout
+      maxWidth="wide"
+      title="Find jobs"
+      subtitle="Search open roles. Use Easy apply on a job to choose which CV to send."
+    >
+      <section className="bg-white rounded-3xl border border-gray-100 p-6 md:p-8 flex flex-col gap-6">
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="search"
+              placeholder="Search title, location, description…"
+              className="input-field pl-10 w-full"
+              value={jobSearch}
+              onChange={(e) => setJobSearch(e.target.value)}
+            />
+          </div>
           <select
-            className="input-field max-w-xs py-2"
-            value={selectedCvId ?? ''}
-            onChange={(e) => setSelectedCvId(Number(e.target.value))}
+            className="input-field md:max-w-[180px]"
+            value={jobTypeFilter}
+            onChange={(e) => setJobTypeFilter(e.target.value)}
           >
-            {cvs.map((cv) => (
-              <option key={cv.id} value={cv.id}>
-                CV #{cv.id}
-                {cv.is_parsed ? ' (parsed)' : ' (not parsed)'}
-              </option>
-            ))}
+            <option value="">All types</option>
+            <option value="full-time">Full-time</option>
+            <option value="part-time">Part-time</option>
+            <option value="internship">Internship</option>
+            <option value="freelance">Freelance</option>
           </select>
         </div>
-      )}
 
-      <div className="flex flex-col md:flex-row md:items-end gap-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="search"
-            placeholder="Search title, location, description…"
-            className="input-field pl-10 w-full"
-            value={jobSearch}
-            onChange={(e) => setJobSearch(e.target.value)}
-          />
-        </div>
-        <select
-          className="input-field md:max-w-[180px]"
-          value={jobTypeFilter}
-          onChange={(e) => setJobTypeFilter(e.target.value)}
-        >
-          <option value="">All types</option>
-          <option value="full-time">Full-time</option>
-          <option value="part-time">Part-time</option>
-          <option value="internship">Internship</option>
-          <option value="freelance">Freelance</option>
-        </select>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
         {filteredJobs.map((job) => {
           const applied = appliedJobIds.has(job.id);
           const expanded = expandedJobId === job.id;
@@ -156,12 +150,28 @@ const CandidateJobsPage = () => {
             <motion.div
               key={job.id}
               layout
-              className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col"
+              className="rounded-2xl border border-gray-100 bg-gray-50/50 p-5 md:p-6 flex flex-col"
             >
               <div className="flex justify-between items-start gap-2">
-                <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
+                <div className="flex items-start gap-3 min-w-0">
+                  {job.company_logo ? (
+                    <img
+                      src={job.company_logo}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover border border-gray-100 shrink-0 bg-gray-50"
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    {job.company_name && (
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        {job.company_name}
+                      </p>
+                    )}
+                    <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
+                  </div>
+                </div>
                 {applied && (
-                  <span className="shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                  <span className="shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-full bg-brand-primary-soft text-brand-primary-deep">
                     Applied
                   </span>
                 )}
@@ -175,6 +185,12 @@ const CandidateJobsPage = () => {
                   <Briefcase size={14} />
                   {job.job_type}
                 </span>
+                {job.created_at && (
+                  <span className="flex items-center gap-1 text-gray-400">
+                    <Calendar size={14} aria-hidden />
+                    {formatPostedDate(job.created_at)}
+                  </span>
+                )}
               </div>
               <p className={`text-sm text-gray-600 mt-3 ${expanded ? '' : 'line-clamp-3'}`}>
                 {job.description}
@@ -182,7 +198,7 @@ const CandidateJobsPage = () => {
               <button
                 type="button"
                 onClick={() => setExpandedJobId(expanded ? null : job.id)}
-                className="mt-2 text-xs font-bold text-brand-green hover:underline self-start flex items-center gap-1"
+                className="mt-2 text-xs font-bold text-brand-primary hover:underline self-start flex items-center gap-1"
               >
                 {expanded ? (
                   <>
@@ -196,46 +212,184 @@ const CandidateJobsPage = () => {
               </button>
               <div className="mt-4 flex flex-wrap gap-2">
                 {!applied ? (
-                  <button type="button" className="btn-primary" onClick={() => handleApply(job.id)}>
-                    Apply with selected CV
+                  <button
+                    type="button"
+                    className="btn-primary inline-flex items-center gap-2"
+                    onClick={() => openEasyApplyModal(job)}
+                  >
+                    <Zap size={18} aria-hidden />
+                    Easy apply
                   </button>
                 ) : (
                   <p className="text-sm text-gray-500 flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-500" />
+                    <CheckCircle size={16} className="text-brand-primary-bright" />
                     You have already applied.
                   </p>
                 )}
               </div>
-              {applyMsg?.jobId === job.id && (
-                <p
-                  className={`mt-2 text-sm flex items-center gap-2 ${
-                    applyMsg.ok ? 'text-emerald-600' : 'text-red-600'
-                  }`}
-                >
-                  {applyMsg.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                  {applyMsg.text}
-                </p>
-              )}
             </motion.div>
           );
         })}
-      </div>
-      {filteredJobs.length === 0 && (
-        <p className="text-gray-400 text-center py-12 border border-dashed border-gray-200 rounded-2xl text-sm">
-          No jobs match your filters.{' '}
-          <button
-            type="button"
-            className="text-brand-green font-semibold"
-            onClick={() => {
-              setJobSearch('');
-              setJobTypeFilter('');
-            }}
+        </div>
+        {filteredJobs.length === 0 ? (
+          <p className="text-gray-400 text-center py-12 border border-dashed border-gray-200 rounded-2xl text-sm">
+            No jobs match your filters.{' '}
+            <button
+              type="button"
+              className="text-brand-primary font-semibold"
+              onClick={() => {
+                setJobSearch('');
+                setJobTypeFilter('');
+              }}
+            >
+              Clear filters
+            </button>
+          </p>
+        ) : null}
+      </section>
+
+      {applyModalJob && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="easy-apply-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeApplyModal();
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            Clear filters
-          </button>
-        </p>
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-primary-soft text-brand-primary">
+                <Zap size={22} aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 id="easy-apply-title" className="text-lg font-bold text-brand-black">
+                  Easy apply
+                </h2>
+                <p className="mt-1 text-sm text-gray-600 line-clamp-2">{applyModalJob.title}</p>
+                {applyModalJob.company_name && (
+                  <p className="text-xs text-gray-400 mt-0.5">{applyModalJob.company_name}</p>
+                )}
+              </div>
+            </div>
+
+            {cvs.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center text-sm text-gray-600">
+                <FileText className="mx-auto mb-2 text-gray-400" size={28} aria-hidden />
+                <p className="font-medium text-brand-black">No CV on file</p>
+                <p className="mt-1 text-gray-500">Upload a CV on My CV before you can apply.</p>
+                <Link
+                  to="/dashboard/cv"
+                  className="mt-4 inline-block btn-primary text-sm py-2.5 px-5"
+                  onClick={closeApplyModal}
+                >
+                  Go to My CV
+                </Link>
+              </div>
+            ) : (
+              <>
+                <p className="mt-5 text-xs font-bold uppercase tracking-wide text-gray-400">
+                  Choose CV to send
+                </p>
+                <ul className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">
+                  {cvs.map((cv) => {
+                    const selected = modalCvId === cv.id;
+                    return (
+                      <li key={cv.id}>
+                        <button
+                          type="button"
+                          onClick={() => setModalCvId(cv.id)}
+                          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transition-colors ${
+                            selected
+                              ? 'border-brand-primary bg-brand-primary-faint ring-1 ring-brand-primary/20'
+                              : 'border-gray-100 hover:border-gray-200 bg-white'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 shrink-0 rounded-full border-2 ${
+                              selected
+                                ? 'border-brand-primary bg-brand-primary'
+                                : 'border-gray-300'
+                            }`}
+                            aria-hidden
+                          >
+                            {selected ? (
+                              <span className="m-auto block h-1.5 w-1.5 rounded-full bg-white" />
+                            ) : null}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-brand-black truncate block">
+                              {cv.display_name?.trim() || 'CV'}
+                            </span>
+                            <span
+                              className={`ml-2 text-xs font-semibold ${
+                                cv.is_parsed ? 'text-brand-primary' : 'text-amber-600'
+                              }`}
+                            >
+                              {cv.is_parsed ? 'Analyzed' : 'Not analyzed'}
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-3 text-xs text-gray-500">
+                  Analyzed CVs usually get better match scores after you apply.
+                </p>
+              </>
+            )}
+
+            {modalError ? (
+              <div className="mt-4 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-800">
+                <AlertCircle size={18} className="shrink-0 mt-0.5" aria-hidden />
+                <p>{modalError}</p>
+              </div>
+            ) : null}
+
+            {cvs.length > 0 ? (
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  disabled={applySubmitting}
+                  onClick={closeApplyModal}
+                  className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={applySubmitting || modalCvId == null}
+                  onClick={() => void submitEasyApply()}
+                  className="flex-1 btn-primary py-3 text-sm font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {applySubmitting ? (
+                    <Loader2 className="animate-spin" size={18} aria-hidden />
+                  ) : (
+                    <Zap size={18} aria-hidden />
+                  )}
+                  Apply
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={closeApplyModal}
+                className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+              >
+                Close
+              </button>
+            )}
+          </motion.div>
+        </div>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

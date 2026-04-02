@@ -15,6 +15,8 @@ import {
 import { api } from '../../services/api';
 import type { JobApplication, GrowthReport } from '../../types';
 import type { RecruiterLayoutContext } from '../../layouts/RecruiterLayout';
+import PageLayout from '../../components/PageLayout';
+import { GrowthReportModal } from '../../components/GrowthReportModal';
 
 const STATUS_ACTIONS: JobApplication['status'][] = ['reviewed', 'accepted', 'rejected'];
 
@@ -109,20 +111,24 @@ const RecruiterJobDetailPage = () => {
 
   if (layoutLoading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="animate-spin text-brand-green" size={40} />
-      </div>
+      <PageLayout.Shell maxWidth="wide">
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <Loader2 className="animate-spin text-brand-primary" size={40} />
+        </div>
+      </PageLayout.Shell>
     );
   }
 
   if (!job) {
     return (
-      <div className="p-8 max-w-lg mx-auto text-center">
-        <p className="text-gray-600 mb-4">Job not found or you do not have access.</p>
-        <button type="button" className="btn-primary" onClick={() => navigate('/recruiter')}>
-          Back to all jobs
-        </button>
-      </div>
+      <PageLayout.Shell maxWidth="narrow">
+        <div className="text-center py-8">
+          <p className="text-gray-600 mb-4">Job not found or you do not have access.</p>
+          <button type="button" className="btn-primary" onClick={() => navigate('/recruiter')}>
+            Back to all jobs
+          </button>
+        </div>
+      </PageLayout.Shell>
     );
   }
 
@@ -130,29 +136,33 @@ const RecruiterJobDetailPage = () => {
   const apps = jobApplications;
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      <Link
-        to="/recruiter"
-        className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-brand-green mb-6"
-      >
-        <ArrowLeft size={18} />
-        All jobs
-      </Link>
-
+    <PageLayout
+      maxWidth="wide"
+      showHeader={false}
+      top={
+        <Link
+          to="/recruiter"
+          className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-brand-primary"
+        >
+          <ArrowLeft size={18} />
+          All jobs
+        </Link>
+      }
+    >
       {displayError && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 flex items-center gap-2">
           <AlertCircle size={20} /> {displayError}
         </div>
       )}
 
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-50 bg-white flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl md:text-2xl font-bold text-brand-black">{job.title}</h1>
               <span
                 className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                  isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
+                  isOpen ? 'bg-brand-primary-soft text-brand-primary-deep' : 'bg-gray-200 text-gray-600'
                 }`}
               >
                 {isOpen ? 'Listing open' : 'Listing closed'}
@@ -174,7 +184,7 @@ const RecruiterJobDetailPage = () => {
               type="button"
               onClick={() => void toggleJobActive()}
               disabled={patchingJob}
-              className="text-sm font-bold px-4 py-2 rounded-xl border border-gray-200 hover:border-brand-green hover:text-brand-green transition-colors disabled:opacity-50"
+              className="text-sm font-bold px-4 py-2 rounded-xl border border-gray-200 hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50"
             >
               {patchingJob ? 'Saving…' : isOpen ? 'Close listing' : 'Open listing'}
             </button>
@@ -221,7 +231,7 @@ const RecruiterJobDetailPage = () => {
                         </td>
                         <td className="py-3 pr-4">
                           <span
-                            className={`text-[10px] font-bold uppercase ${app.cv_is_parsed ? 'text-emerald-600' : 'text-amber-600'}`}
+                            className={`text-[10px] font-bold uppercase ${app.cv_is_parsed ? 'text-brand-primary' : 'text-amber-600'}`}
                           >
                             {app.cv_is_parsed ? 'Parsed' : 'Not parsed'}
                           </span>
@@ -230,7 +240,7 @@ const RecruiterJobDetailPage = () => {
                               href={app.cv_file}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-2 inline-flex text-brand-green hover:underline"
+                              className="ml-2 inline-flex text-brand-primary hover:underline"
                             >
                               <ExternalLink size={14} />
                             </a>
@@ -248,7 +258,7 @@ const RecruiterJobDetailPage = () => {
                                 type="button"
                                 disabled={patchingApp === app.id}
                                 onClick={() => void handleStatus(app.id, st)}
-                                className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-white border border-gray-200 hover:border-brand-green disabled:opacity-50"
+                                className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-white border border-gray-200 hover:border-brand-primary disabled:opacity-50"
                               >
                                 {st}
                               </button>
@@ -257,7 +267,7 @@ const RecruiterJobDetailPage = () => {
                               <button
                                 type="button"
                                 onClick={() => void openGrowthReport(app.id)}
-                                className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-brand-black text-white hover:bg-brand-green flex items-center gap-1"
+                                className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-brand-black text-white hover:bg-brand-primary flex items-center gap-1"
                               >
                                 <BookOpen size={12} /> Report
                               </button>
@@ -296,7 +306,7 @@ const RecruiterJobDetailPage = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   key={app.id}
-                  className="grid grid-cols-12 items-center bg-white p-4 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow gap-2"
+                  className="grid grid-cols-12 items-center bg-white p-4 rounded-2xl border border-gray-100 transition-colors hover:border-gray-300 gap-2"
                 >
                   <div className="col-span-5 flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 bg-brand-black rounded-full flex items-center justify-center text-white font-bold shrink-0">
@@ -316,7 +326,7 @@ const RecruiterJobDetailPage = () => {
                     <div
                       className={`inline-block px-3 py-1 rounded-full font-black text-sm ${
                         (app.match_score ?? 0) >= 80
-                          ? 'bg-emerald-100 text-emerald-700'
+                          ? 'bg-brand-primary-soft text-brand-primary-mid'
                           : (app.match_score ?? 0) >= 50
                             ? 'bg-amber-100 text-amber-700'
                             : 'bg-gray-100 text-gray-600'
@@ -338,7 +348,7 @@ const RecruiterJobDetailPage = () => {
                         href={app.cv_file}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 inline-flex hover:bg-gray-100 rounded-lg text-gray-400 hover:text-brand-green"
+                        className="p-2 inline-flex hover:bg-gray-100 rounded-lg text-gray-400 hover:text-brand-primary"
                         title="Open CV"
                       >
                         <ExternalLink size={18} />
@@ -354,65 +364,18 @@ const RecruiterJobDetailPage = () => {
         </div>
       </div>
 
-      {growthForApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-8 shadow-xl"
-          >
-            <h3 className="text-xl font-bold text-brand-black mb-2">Growth report</h3>
-            <p className="text-xs text-gray-500 mb-6">Application #{growthForApp.id}</p>
-            {growthForApp.loading && (
-              <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
-                <Loader2 className="animate-spin" /> Generating…
-              </div>
-            )}
-            {growthForApp.error && (
-              <p className="text-red-600 text-sm">{growthForApp.error}</p>
-            )}
-            {growthForApp.data && (
-              <div className="space-y-6 text-sm">
-                <div>
-                  <h4 className="font-bold text-brand-black mb-2">Skill gaps</h4>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    {growthForApp.data.skill_gaps?.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-bold text-brand-black mb-2">Recommendations</h4>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    {growthForApp.data.recommendations?.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-                {growthForApp.data.suggested_resources &&
-                  growthForApp.data.suggested_resources.length > 0 && (
-                    <div>
-                      <h4 className="font-bold text-brand-black mb-2">Suggested resources</h4>
-                      <ul className="list-disc list-inside text-gray-600 space-y-1">
-                        {growthForApp.data.suggested_resources.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setGrowthForApp(null)}
-              className="mt-8 w-full btn-secondary py-3 rounded-xl font-bold"
-            >
-              Close
-            </button>
-          </motion.div>
-        </div>
-      )}
-    </div>
+      <GrowthReportModal
+        open={growthForApp !== null}
+        onClose={() => setGrowthForApp(null)}
+        title="Growth report"
+        applicationId={growthForApp?.id ?? null}
+        showApplicationId
+        loading={growthForApp?.loading ?? false}
+        error={growthForApp?.error ?? ''}
+        data={growthForApp?.data ?? null}
+        dismissLabel="Close"
+      />
+    </PageLayout>
   );
 };
 

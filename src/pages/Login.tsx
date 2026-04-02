@@ -32,7 +32,7 @@ const Login = () => {
 
       await refreshUser();
       const userData = await api.getMe();
-      navigateAfterAuth(navigate, meResponseToUser(userData));
+      await navigateAfterAuth(navigate, meResponseToUser(userData));
     } catch (err: unknown) {
       try {
         const msg = err instanceof Error ? err.message : String(err);
@@ -51,10 +51,10 @@ const Login = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-white p-10 rounded-3xl shadow-xl border border-gray-100"
+        className="w-full max-w-md bg-white p-10 rounded-3xl border border-gray-100"
       >
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-brand-green rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
+          <div className="w-16 h-16 bg-brand-primary rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
             <LogIn size={32} />
           </div>
           <h2 className="text-3xl font-bold">Welcome Back</h2>
@@ -106,7 +106,7 @@ const Login = () => {
 
         <div className="mt-8 text-center text-sm text-gray-500">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-brand-green font-bold hover:underline">
+          <Link to="/signup" className="text-brand-primary font-bold hover:underline">
             Create one
           </Link>
         </div>

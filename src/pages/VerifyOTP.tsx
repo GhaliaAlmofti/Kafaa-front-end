@@ -33,7 +33,7 @@ const VerifyOTP = () => {
     try {
       await verifyOtpCtx(otpCode);
       const userData = await api.getMe();
-      navigateAfterAuth(navigate, meResponseToUser(userData));
+      await navigateAfterAuth(navigate, meResponseToUser(userData));
     } catch {
       setError('Invalid code. Please try again (Default: 0000)');
     } finally {
@@ -46,9 +46,9 @@ const VerifyOTP = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white p-10 rounded-3xl shadow-xl text-center"
+        className="max-w-md w-full bg-white p-10 rounded-3xl border border-gray-100 text-center"
       >
-        <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="w-16 h-16 bg-brand-primary/10 text-brand-primary rounded-full flex items-center justify-center mx-auto mb-6">
           <ShieldCheck size={32} />
         </div>
 
@@ -73,7 +73,7 @@ const VerifyOTP = () => {
                 type="text"
                 maxLength={1}
                 inputMode="numeric"
-                className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-brand-green focus:outline-none transition-all"
+                className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-brand-primary focus:outline-none transition-all"
                 value={data}
                 onChange={(e) => handleChange(e.target, index)}
                 onFocus={(e) => e.target.select()}
@@ -95,13 +95,13 @@ const VerifyOTP = () => {
         <button
           type="button"
           onClick={() => setOtp(['', '', '', ''])}
-          className="mt-6 text-sm text-gray-400 hover:text-brand-green transition-colors"
+          className="mt-6 text-sm text-gray-400 hover:text-brand-primary transition-colors"
         >
           Clear code
         </button>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          <Link to="/login" className="text-brand-green font-bold hover:underline">
+          <Link to="/login" className="text-brand-primary font-bold hover:underline">
             Back to login
           </Link>
         </div>

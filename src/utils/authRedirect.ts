@@ -1,5 +1,5 @@
 import type { NavigateFunction } from 'react-router-dom';
-import type { MeResponse } from '../services/api';
+import { api, type MeResponse } from '../services/api';
 import type { User, UserRole } from '../types';
 
 export const SESSION_VERIFY_USER_ID_KEY = 'kafaa_verify_user_id';
@@ -18,11 +18,13 @@ export function meResponseToUser(data: MeResponse): User {
     phone_number: data.phone_number || '',
     is_verified: data.is_verified,
     role: apiRoleToUserRole(data.role),
+    avatar_url: data.avatar ?? null,
     profiles: data.profiles,
   };
 }
 
-export function navigateAfterAuth(navigate: NavigateFunction, user: User) {
+/** After login or signup verification: admins/recruiters go to their app; candidates with no CV go to upload. */
+export async function navigateAfterAuth(navigate: NavigateFunction, user: User) {
   if (user.role === 'ADMIN') {
     navigate('/admin');
     return;
@@ -31,5 +33,10 @@ export function navigateAfterAuth(navigate: NavigateFunction, user: User) {
     navigate('/recruiter');
     return;
   }
-  navigate('/dashboard');
+  try {
+    const cvs = await api.getUserCV();
+    navigate(cvs.length === 0 ? '/dashboard/cv' : '/dashboard');
+  } catch {
+    navigate('/dashboard');
+  }
 }

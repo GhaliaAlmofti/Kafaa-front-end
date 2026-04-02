@@ -10,9 +10,37 @@ import {
   ChevronUp,
   Loader2,
   ExternalLink,
+  Calendar,
+  FileText,
+  BookOpen,
 } from 'lucide-react';
-import type { Company, AdminJobRow, JobApplication } from '../../types';
+import { formatPostedDate } from '../../utils/formatPostedDate';
+import type { Company, AdminJobRow, JobApplication, GrowthReport } from '../../types';
 import { api } from '../../services/api';
+import PageLayout from '../../components/PageLayout';
+import { GrowthReportModal } from '../../components/GrowthReportModal';
+
+const STATUS_ACTIONS: JobApplication['status'][] = ['reviewed', 'accepted', 'rejected'];
+
+function statusBadgeClass(status: JobApplication['status']) {
+  switch (status) {
+    case 'accepted':
+      return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/80';
+    case 'rejected':
+      return 'bg-red-100 text-red-800 ring-1 ring-red-200/80';
+    case 'reviewed':
+      return 'bg-sky-100 text-sky-800 ring-1 ring-sky-200/80';
+    default:
+      return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200/80';
+  }
+}
+
+function scorePillClass(score: number | null) {
+  if (score == null) return 'bg-gray-100 text-gray-500';
+  if (score >= 80) return 'bg-brand-primary-soft text-brand-primary-mid';
+  if (score >= 50) return 'bg-amber-100 text-amber-800';
+  return 'bg-gray-200 text-gray-700';
+}
 
 const AdminJobsPage = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -37,6 +65,14 @@ const AdminJobsPage = () => {
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
   const [jobApplications, setJobApplications] = useState<Record<number, JobApplication[]>>({});
   const [loadingAppsForJob, setLoadingAppsForJob] = useState<number | null>(null);
+  const [patchingAppId, setPatchingAppId] = useState<number | null>(null);
+  const [expandedReasonAppId, setExpandedReasonAppId] = useState<number | null>(null);
+  const [growthForApp, setGrowthForApp] = useState<{
+    id: number;
+    data: GrowthReport | null;
+    loading: boolean;
+    error: string;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,40 +124,70 @@ const AdminJobsPage = () => {
     }
   };
 
-  const loadJobApplications = async (jobId: number) => {
+  const loadJobApplications = async (jobId: number, opts?: { quiet?: boolean }) => {
     try {
-      setLoadingAppsForJob(jobId);
+      if (!opts?.quiet) setLoadingAppsForJob(jobId);
       const rows = await api.listJobApplications(jobId);
       setJobApplications((prev) => ({ ...prev, [jobId]: rows }));
     } catch {
       setError('Could not load applications for this job.');
     } finally {
-      setLoadingAppsForJob(null);
+      if (!opts?.quiet) setLoadingAppsForJob(null);
+    }
+  };
+
+  const sortedApplications = useCallback((list: JobApplication[]) => {
+    return [...list].sort((a, b) => {
+      const sa = a.match_score ?? -1;
+      const sb = b.match_score ?? -1;
+      if (sb !== sa) return sb - sa;
+      return new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime();
+    });
+  }, []);
+
+  const handleApplicationStatus = async (jobId: number, appId: number, status: JobApplication['status']) => {
+    try {
+      setPatchingAppId(appId);
+      setError('');
+      await api.patchJobApplication(appId, { status });
+      await loadJobApplications(jobId, { quiet: true });
+    } catch {
+      setError('Could not update application status.');
+    } finally {
+      setPatchingAppId(null);
+    }
+  };
+
+  const openGrowthReport = async (applicationId: number) => {
+    setGrowthForApp({ id: applicationId, data: null, loading: true, error: '' });
+    try {
+      const data = await api.getGrowthReport(applicationId);
+      setGrowthForApp({ id: applicationId, data, loading: false, error: '' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load report';
+      setGrowthForApp({ id: applicationId, data: null, loading: false, error: msg });
     }
   };
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[40vh]">Loading…</div>
+      <PageLayout.Shell maxWidth="wide">
+        <div className="flex items-center justify-center min-h-[40vh] text-gray-500">Loading…</div>
+      </PageLayout.Shell>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      <header className="flex justify-between items-center mb-8 flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-brand-black">Jobs</h1>
-          <p className="text-gray-500 text-sm mt-1">Listings and applications</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowJobForm(true)}
-          className="btn-primary flex items-center gap-2"
-        >
+    <PageLayout
+      maxWidth="wide"
+      title="Jobs"
+      subtitle="Listings and applications"
+      actions={
+        <button type="button" onClick={() => setShowJobForm(true)} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> Post job
         </button>
-      </header>
-
+      }
+    >
       {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm">
           <AlertCircle size={18} />
@@ -129,20 +195,20 @@ const AdminJobsPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+      <div className="bg-white rounded-3xl p-6 border border-gray-100">
         <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <Briefcase className="text-brand-green" /> Jobs ({adminJobs.length})
+          <Briefcase className="text-brand-primary" /> Jobs ({adminJobs.length})
         </h2>
         <div className="space-y-4">
           {adminJobs.map((job) => {
             const expanded = expandedJobId === job.id;
-            const apps = jobApplications[job.id] ?? [];
+            const apps = sortedApplications(jobApplications[job.id] ?? []);
             return (
               <div
                 key={job.id}
                 className="rounded-2xl border border-gray-100 overflow-hidden"
               >
-                <div className="p-6 hover:border-brand-green transition-all">
+                <div className="p-6 hover:border-brand-primary transition-all">
                   <div className="flex justify-between items-start gap-4 flex-wrap">
                     <div>
                       <h3 className="text-xl font-bold">{job.title}</h3>
@@ -153,12 +219,18 @@ const AdminJobsPage = () => {
                         <span className="flex items-center gap-1">
                           <MapPin size={14} /> {job.location}
                         </span>
+                        {job.created_at && (
+                          <span className="flex items-center gap-1">
+                            <Calendar size={14} aria-hidden />
+                            {formatPostedDate(job.created_at)}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
                           <Users size={14} /> {job.application_count ?? 0} applications
                         </span>
                         <span
                           className={`font-bold uppercase ${
-                            job.is_active !== false ? 'text-emerald-600' : 'text-gray-500'
+                            job.is_active !== false ? 'text-brand-primary' : 'text-gray-500'
                           }`}
                         >
                           {job.is_active !== false ? 'Listing open' : 'Closed'}
@@ -166,13 +238,13 @@ const AdminJobsPage = () => {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <span className="px-3 py-1 bg-emerald-50 text-brand-green text-xs font-bold rounded-full uppercase">
+                      <span className="px-3 py-1 bg-brand-primary-faint text-brand-primary text-xs font-bold rounded-full uppercase">
                         {job.job_type}
                       </span>
                       <button
                         type="button"
                         onClick={() => toggleJobExpand(job.id)}
-                        className="text-xs font-bold flex items-center gap-1 text-brand-green hover:underline"
+                        className="text-xs font-bold flex items-center gap-1 text-brand-primary hover:underline"
                       >
                         {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         {expanded ? 'Hide' : 'View'} applications
@@ -185,57 +257,163 @@ const AdminJobsPage = () => {
                   </p>
                 </div>
                 {expanded && (
-                  <div className="px-6 pb-6 pt-0 border-t border-gray-100 bg-gray-50/50">
+                  <div className="border-t border-gray-100 bg-gradient-to-b from-gray-50/90 to-gray-50/40 px-4 py-5 sm:px-6">
                     {loadingAppsForJob === job.id ? (
-                      <div className="flex items-center justify-center gap-2 py-8 text-gray-500 text-sm">
-                        <Loader2 className="animate-spin" size={18} /> Loading…
+                      <div className="flex items-center justify-center gap-2 py-10 text-gray-500 text-sm">
+                        <Loader2 className="animate-spin" size={18} /> Loading applicants…
                       </div>
                     ) : apps.length === 0 ? (
-                      <p className="text-center text-gray-400 py-8 text-sm">
-                        No applications for this job.
-                      </p>
+                      <div className="rounded-2xl border border-dashed border-gray-200 bg-white/60 py-10 text-center">
+                        <Users className="mx-auto text-gray-300 mb-2" size={32} />
+                        <p className="text-sm font-medium text-gray-600">No applications yet</p>
+                        <p className="text-xs text-gray-400 mt-1">Candidates will appear here after they apply.</p>
+                      </div>
                     ) : (
-                      <div className="overflow-x-auto pt-4">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-left text-[10px] font-black uppercase text-gray-400 border-b border-gray-200">
-                              <th className="pb-2 pr-3">Candidate</th>
-                              <th className="pb-2 pr-3">Applied</th>
-                              <th className="pb-2 pr-3">Status</th>
-                              <th className="pb-2 pr-3">Score</th>
-                              <th className="pb-2">CV</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {apps.map((app) => (
-                              <tr key={app.id} className="border-b border-gray-100">
-                                <td className="py-2 pr-3">{app.applicant_name}</td>
-                                <td className="py-2 pr-3 text-gray-500 whitespace-nowrap">
-                                  {new Date(app.applied_at).toLocaleDateString()}
-                                </td>
-                                <td className="py-2 pr-3 capitalize">{app.status}</td>
-                                <td className="py-2 pr-3">
-                                  {app.match_score != null ? `${app.match_score}%` : '—'}
-                                </td>
-                                <td className="py-2">
+                      <>
+                        <div className="flex flex-wrap items-end justify-between gap-2 mb-4">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                              Applicants
+                            </p>
+                            <p className="text-sm font-bold text-brand-black">
+                              {apps.length} {apps.length === 1 ? 'person' : 'people'} · sorted by match score
+                            </p>
+                          </div>
+                        </div>
+                        <ul className="grid gap-3 sm:gap-4">
+                          {apps.map((app, idx) => {
+                            const initial = (app.applicant_name || '?').charAt(0).toUpperCase();
+                            const reasonExpanded = expandedReasonAppId === app.id;
+                            const hasReason = Boolean(app.match_reason?.trim());
+                            return (
+                              <motion.li
+                                key={app.id}
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.03 }}
+                                className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                              >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                  <div className="flex gap-3 min-w-0">
+                                    <div
+                                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-black text-sm font-black text-white"
+                                      aria-hidden
+                                    >
+                                      {initial}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-brand-black truncate">
+                                        {app.applicant_name || `Applicant #${app.applicant}`}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        Applied{' '}
+                                        {new Date(app.applied_at).toLocaleString(undefined, {
+                                          dateStyle: 'medium',
+                                          timeStyle: 'short',
+                                        })}
+                                        <span className="text-gray-300"> · </span>
+                                        <span
+                                          className={
+                                            app.cv_is_parsed
+                                              ? 'text-brand-primary font-semibold'
+                                              : 'text-amber-700 font-semibold'
+                                          }
+                                        >
+                                          CV {app.cv_is_parsed ? 'analyzed' : 'not analyzed'}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`self-start shrink-0 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide ${statusBadgeClass(app.status)}`}
+                                  >
+                                    {app.status}
+                                  </span>
+                                </div>
+
+                                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                                  <div
+                                    className={`flex shrink-0 flex-col items-center justify-center rounded-xl px-4 py-3 sm:min-w-[5.5rem] ${scorePillClass(app.match_score)}`}
+                                  >
+                                    <span className="text-[10px] font-black uppercase opacity-80">
+                                      Match
+                                    </span>
+                                    <span className="text-xl font-black tabular-nums">
+                                      {app.match_score != null ? `${app.match_score}%` : '—'}
+                                    </span>
+                                  </div>
+                                  <div className="min-w-0 flex-1 rounded-xl bg-gray-50/80 px-3 py-2.5 border border-gray-100/80">
+                                    {hasReason ? (
+                                      <>
+                                        <p
+                                          className={`text-xs text-gray-600 leading-relaxed ${reasonExpanded ? '' : 'line-clamp-3'}`}
+                                        >
+                                          {app.match_reason}
+                                        </p>
+                                        {app.match_reason && app.match_reason.length > 140 && (
+                                          <button
+                                            type="button"
+                                            className="mt-1 text-[10px] font-bold uppercase text-brand-primary hover:underline"
+                                            onClick={() =>
+                                              setExpandedReasonAppId(reasonExpanded ? null : app.id)
+                                            }
+                                          >
+                                            {reasonExpanded ? 'Show less' : 'Show full reason'}
+                                          </button>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <p className="text-xs text-gray-400 italic">
+                                        No match summary yet (often appears after CV analysis).
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap items-center gap-2">
                                   {app.cv_file ? (
                                     <a
                                       href={app.cv_file}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-brand-green inline-flex"
+                                      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-brand-black transition hover:border-brand-primary hover:text-brand-primary"
                                     >
-                                      <ExternalLink size={16} />
+                                      <FileText size={16} className="text-brand-primary" />
+                                      Open CV
+                                      <ExternalLink size={14} className="opacity-50" />
                                     </a>
                                   ) : (
-                                    '—'
+                                    <span className="text-xs text-gray-400">No CV file link</span>
                                   )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                  <div className="ml-auto flex flex-wrap justify-end gap-1.5">
+                                    {STATUS_ACTIONS.map((st) => (
+                                      <button
+                                        key={st}
+                                        type="button"
+                                        disabled={patchingAppId === app.id || app.status === st}
+                                        onClick={() => void handleApplicationStatus(job.id, app.id, st)}
+                                        className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-gray-700 transition hover:border-brand-primary hover:text-brand-primary disabled:opacity-40 disabled:pointer-events-none"
+                                      >
+                                        {st}
+                                      </button>
+                                    ))}
+                                    {app.status === 'rejected' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void openGrowthReport(app.id)}
+                                        className="inline-flex items-center gap-1 rounded-lg bg-brand-black px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-white transition hover:bg-brand-primary"
+                                      >
+                                        <BookOpen size={12} />
+                                        Growth report
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.li>
+                            );
+                          })}
+                        </ul>
+                      </>
                     )}
                   </div>
                 )}
@@ -324,7 +502,19 @@ const AdminJobsPage = () => {
           </motion.div>
         </div>
       )}
-    </div>
+
+      <GrowthReportModal
+        open={growthForApp !== null}
+        onClose={() => setGrowthForApp(null)}
+        title="Growth report"
+        applicationId={growthForApp?.id ?? null}
+        showApplicationId
+        loading={growthForApp?.loading ?? false}
+        error={growthForApp?.error ?? ''}
+        data={growthForApp?.data ?? null}
+        dismissLabel="Close"
+      />
+    </PageLayout>
   );
 };
 

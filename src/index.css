@@ -1,18 +1,16 @@
 @import "tailwindcss";
-
-@theme {
-  --color-brand-green: #116111;
-  --color-brand-black: #000000;
-  --color-brand-white: #ffffff;
-  
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-
-  --animate-spin-slow: spin 8s linear infinite;
-}
+@import "./theme.css";
 
 @layer base {
   body {
     @apply bg-white text-black antialiased;
+  }
+}
+
+@layer components {
+  /* In this layer so Tailwind utilities (e.g. pl-12) can override px-4 for icon inputs */
+  .input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition-all;
   }
 }
 
@@ -21,13 +19,81 @@
 }
 
 .btn-primary {
-  @apply bg-brand-green text-white px-6 py-2 rounded-lg font-medium transition-all hover:bg-emerald-800 active:scale-95;
+  @apply bg-brand-primary text-white px-6 py-2 rounded-lg font-medium transition-all hover:bg-brand-primary-hover active:scale-95;
 }
 
 .btn-secondary {
-  @apply border-2 border-brand-green text-brand-green px-6 py-2 rounded-lg font-medium transition-all hover:bg-brand-green hover:text-white active:scale-95;
+  @apply border-2 border-brand-primary text-brand-primary px-6 py-2 rounded-lg font-medium transition-all hover:bg-brand-primary hover:text-white active:scale-95;
 }
 
-.input-field {
-  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-transparent outline-none transition-all;
+/* ─── AI feature system (tune colors in theme.css: --color-ai-*) ─── */
+.ai-text-gradient {
+  background-image: linear-gradient(
+    105deg,
+    var(--color-ai-indigo) 0%,
+    var(--color-ai-violet) 25%,
+    var(--color-ai-fuchsia) 55%,
+    var(--color-ai-cyan) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ai-feature-border {
+  border-radius: 1rem;
+  padding: 1px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  background-image: linear-gradient(
+    135deg,
+    var(--color-ai-indigo) 0%,
+    var(--color-ai-violet) 30%,
+    var(--color-ai-fuchsia) 62%,
+    var(--color-ai-cyan) 100%
+  );
+}
+
+.ai-feature-border-inner {
+  @apply rounded-[0.9rem] bg-white;
+}
+
+.ai-glow-orb {
+  pointer-events: none;
+  position: absolute;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 9999px;
+  filter: blur(48px);
+  opacity: 0.28;
+  background: linear-gradient(
+    135deg,
+    var(--color-ai-violet),
+    var(--color-ai-fuchsia),
+    var(--color-ai-cyan)
+  );
+}
+
+.ai-analyzing-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--color-brand-white), var(--color-brand-white)) padding-box,
+    linear-gradient(
+      125deg,
+      var(--color-ai-indigo),
+      var(--color-ai-violet),
+      var(--color-ai-fuchsia),
+      var(--color-ai-cyan)
+    )
+    border-box;
+}
+
+/* Growth report modal — AI notice uses same cyan family as app AI tokens */
+.growth-report-ai-notice {
+  border-width: 1px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--color-ai-cyan) 32%, var(--color-brand-white));
+  background-color: color-mix(in srgb, var(--color-ai-cyan) 10%, var(--color-brand-white));
 }

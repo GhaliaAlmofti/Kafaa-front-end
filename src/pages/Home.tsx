@@ -6,9 +6,9 @@ import { Link } from 'react-router-dom';
 const Hero = () => (
   <section className="relative h-screen flex items-center justify-center overflow-hidden bg-brand-black text-white">
     <div className="absolute inset-0 opacity-20">
-      <div className="absolute top-0 -left-4 w-72 h-72 bg-brand-green rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
-      <div className="absolute top-0 -right-4 w-72 h-72 bg-emerald-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-emerald-800 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+      <div className="absolute top-0 -left-4 w-72 h-72 bg-brand-primary rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+      <div className="absolute top-0 -right-4 w-72 h-72 bg-brand-primary-mid rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-brand-primary-void rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
     </div>
     
     <div className="container mx-auto px-6 relative z-10 text-center">
@@ -18,7 +18,7 @@ const Hero = () => (
         transition={{ duration: 0.8 }}
         className="text-5xl md:text-7xl font-bold mb-6"
       >
-        Your Career, <br /><span className="text-brand-green">Our Vision</span>
+        Your Career, <br /><span className="text-brand-primary">Our Vision</span>
       </motion.h1>
       <motion.p 
         initial={{ opacity: 0, y: 20 }}
@@ -76,9 +76,23 @@ const Home = () => {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.2 }}
                 whileHover={{ y: -10 }}
-                className="text-center p-8 rounded-3xl border border-gray-50 hover:shadow-2xl hover:shadow-brand-green/5 transition-all bg-white"
+                className="text-center p-8 rounded-3xl border border-gray-50 transition-colors hover:border-brand-primary/40 bg-white"
               >
-                <div className="w-20 h-20 bg-brand-green/10 rounded-3xl flex items-center justify-center text-brand-green mx-auto mb-8 transform group-hover:rotate-6 transition-transform">
+                <div
+                  className={`mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-3xl transform transition-transform group-hover:rotate-6 ${
+                    feature.title === 'AI Matching'
+                      ? 'text-white shadow-md'
+                      : 'bg-brand-primary/10 text-brand-primary'
+                  }`}
+                  style={
+                    feature.title === 'AI Matching'
+                      ? {
+                          backgroundImage:
+                            'linear-gradient(145deg, var(--color-ai-indigo), var(--color-ai-violet), var(--color-ai-cyan))',
+                        }
+                      : undefined
+                  }
+                >
                   <feature.icon size={40} />
                 </div>
                 <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
@@ -90,7 +104,7 @@ const Home = () => {
       </section>
 
       <section className="py-24 bg-brand-black text-white overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-brand-green/10 blur-3xl rounded-full translate-x-1/2"></div>
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-brand-primary/10 blur-3xl rounded-full translate-x-1/2"></div>
         <div className="container mx-auto px-6 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-16">
             <motion.div 
@@ -100,7 +114,7 @@ const Home = () => {
               transition={{ duration: 0.8 }}
               className="flex-1"
             >
-              <h2 className="text-4xl md:text-6xl font-bold mb-8 leading-tight">Ready to transform your <span className="text-brand-green">career path?</span></h2>
+              <h2 className="text-4xl md:text-6xl font-bold mb-8 leading-tight">Ready to transform your <span className="text-brand-primary">career path?</span></h2>
               <p className="text-xl text-gray-400 mb-10 leading-relaxed">
                 Join thousands of professionals in Libya who have found their dream roles through our intelligent matching ecosystem.
               </p>
@@ -115,9 +129,9 @@ const Home = () => {
               transition={{ duration: 1 }}
               className="flex-1 w-full"
             >
-              <div className="aspect-square rounded-full border-2 border-brand-green/30 flex items-center justify-center relative">
-                <div className="absolute inset-0 animate-spin-slow border-t-2 border-brand-green rounded-full"></div>
-                <Brain size={160} className="text-brand-green animate-pulse" />
+              <div className="aspect-square rounded-full border-2 border-brand-primary/30 flex items-center justify-center relative">
+                <div className="absolute inset-0 animate-spin-slow border-t-2 border-brand-primary rounded-full"></div>
+                <Brain size={160} className="text-brand-primary animate-pulse" />
               </div>
             </motion.div>
           </div>

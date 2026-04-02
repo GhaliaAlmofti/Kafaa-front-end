@@ -1,27 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { Send, BookOpen, Loader2, AlertCircle } from 'lucide-react';
+import { BookOpen, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
+import PageLayout from '../../components/PageLayout';
+import { GrowthReportModal } from '../../components/GrowthReportModal';
 import type { MyApplication, GrowthReport } from '../../types';
+import { formatApiErrorBody } from '../../utils/apiErrorMessage';
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-amber-50 text-amber-800',
   reviewed: 'bg-sky-50 text-sky-800',
-  accepted: 'bg-emerald-100 text-emerald-800',
+  accepted: 'bg-brand-primary-soft text-brand-primary-deep',
   rejected: 'bg-red-50 text-red-800',
 };
 
 function formatGrowthReportApiError(e: unknown): string {
   if (e instanceof Error) {
-    try {
-      const parsed = JSON.parse(e.message) as { detail?: unknown };
-      const d = parsed.detail;
-      if (typeof d === 'string') return d;
-      if (Array.isArray(d)) return d.map(String).join(' ');
-    } catch {
-      return e.message;
-    }
+    return formatApiErrorBody(e.message, e.message || 'Failed to load growth report.');
   }
   return 'Failed to load growth report.';
 }
@@ -52,7 +47,6 @@ const CandidateApplicationsPage = () => {
     load();
   }, [load]);
 
-  /** Calls GET /jobs/applications/:id/growth-report/ (GrowthReportView) and shows the JSON body in the modal. */
   const openGrowthReport = async (applicationId: number) => {
     setGrowthModal({ appId: applicationId, data: null, loading: true, error: '' });
     try {
@@ -70,34 +64,30 @@ const CandidateApplicationsPage = () => {
 
   if (loading) {
     return (
-      <div className="p-8 flex justify-center text-gray-500 gap-2">
-        <Loader2 className="animate-spin" size={22} />
-        Loading applications…
-      </div>
+      <PageLayout.Shell maxWidth="wide">
+        <div className="flex justify-center min-h-[40vh] items-center text-gray-500 gap-2">
+          <Loader2 className="animate-spin" size={22} />
+          Loading applications…
+        </div>
+      </PageLayout.Shell>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold text-brand-black flex items-center gap-2">
-          <Send className="text-brand-green" size={28} /> My applications
-        </h1>
-        <p className="text-gray-500 mt-2 text-sm">
-          Status updates come from recruiters. Match scores appear after you apply (with an analyzed
-          CV).
-        </p>
-      </header>
-
-      <section className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+    <PageLayout
+      maxWidth="wide"
+      title="My applications"
+      subtitle="Status updates come from recruiters. Match scores appear after you apply (with an analyzed CV)."
+    >
+      <section className="bg-white rounded-3xl border border-gray-100 p-6 md:p-8 flex flex-col gap-6">
         {myApps.length === 0 ? (
           <p className="text-gray-400 text-sm py-12 text-center border border-dashed border-gray-200 rounded-2xl">
             You have not applied yet.{' '}
-            <Link to="/dashboard/jobs" className="text-brand-green font-semibold">
+            <Link to="/dashboard/jobs" className="text-brand-primary font-semibold">
               Find jobs
             </Link>{' '}
             or visit the{' '}
-            <Link to="/jobs" className="text-brand-green font-semibold">
+            <Link to="/jobs" className="text-brand-primary font-semibold">
               public catalog
             </Link>
             .
@@ -137,7 +127,7 @@ const CandidateApplicationsPage = () => {
                     </td>
                     <td className="py-3 pr-4">
                       {app.match_score != null ? (
-                        <span className="font-bold text-brand-green">{app.match_score}%</span>
+                        <span className="font-bold text-brand-primary">{app.match_score}%</span>
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}
@@ -152,7 +142,7 @@ const CandidateApplicationsPage = () => {
                             : 'Open career growth report from the server'
                         }
                         onClick={() => void openGrowthReport(app.id)}
-                        className="btn-secondary text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 w-fit disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-brand-green"
+                        className="btn-secondary text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 w-fit disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-brand-primary"
                       >
                         <BookOpen size={14} /> Growth report
                       </button>
@@ -165,72 +155,16 @@ const CandidateApplicationsPage = () => {
         )}
       </section>
 
-      {growthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-8 shadow-xl"
-          >
-            <h3 className="text-xl font-bold text-brand-black mb-2">Your growth report</h3>
-            <p className="text-xs text-gray-500 mb-6">Application #{growthModal.appId}</p>
-            {growthModal.loading && (
-              <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
-                <Loader2 className="animate-spin" /> Loading…
-              </div>
-            )}
-            {growthModal.error && (
-              <p className="text-red-600 text-sm border border-red-100 bg-red-50/80 rounded-xl p-3">
-                {growthModal.error}
-              </p>
-            )}
-            {growthModal.data && (
-              <div className="space-y-6 text-sm">
-                <p className="text-xs text-gray-500">
-                  From{' '}
-                  <code className="text-gray-700 bg-gray-100 px-1 rounded">
-                    GET /jobs/applications/{growthModal.appId}/growth-report/
-                  </code>
-                </p>
-                <div>
-                  <h4 className="font-bold text-brand-black mb-2">Skill gaps</h4>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    {(growthModal.data.skill_gaps ?? []).map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-bold text-brand-black mb-2">Recommendations</h4>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    {(growthModal.data.recommendations ?? []).map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-                {(growthModal.data.suggested_resources?.length ?? 0) > 0 && (
-                  <div>
-                    <h4 className="font-bold text-brand-black mb-2">Suggested resources</h4>
-                    <ul className="list-disc list-inside text-gray-600 space-y-1">
-                      {growthModal.data.suggested_resources!.map((s, i) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setGrowthModal(null)}
-              className="mt-8 w-full btn-secondary py-3 rounded-xl font-bold"
-            >
-              Close
-            </button>
-          </motion.div>
-        </div>
-      )}
-    </div>
+      <GrowthReportModal
+        open={growthModal !== null}
+        onClose={() => setGrowthModal(null)}
+        title="Your growth report"
+        applicationId={growthModal?.appId ?? null}
+        loading={growthModal?.loading ?? false}
+        error={growthModal?.error ?? ''}
+        data={growthModal?.data ?? null}
+      />
+    </PageLayout>
   );
 };
 
