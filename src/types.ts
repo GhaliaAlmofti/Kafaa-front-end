@@ -79,6 +79,7 @@ export interface MyApplication {
   match_reason: string | null;
   applied_at: string;
   cv: number;
+  cv_is_parsed?: boolean;
 }
 
 export interface RankedApplication {

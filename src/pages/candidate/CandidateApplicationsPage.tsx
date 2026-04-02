@@ -12,6 +12,20 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: 'bg-red-50 text-red-800',
 };
 
+function formatGrowthReportApiError(e: unknown): string {
+  if (e instanceof Error) {
+    try {
+      const parsed = JSON.parse(e.message) as { detail?: unknown };
+      const d = parsed.detail;
+      if (typeof d === 'string') return d;
+      if (Array.isArray(d)) return d.map(String).join(' ');
+    } catch {
+      return e.message;
+    }
+  }
+  return 'Failed to load growth report.';
+}
+
 const CandidateApplicationsPage = () => {
   const [myApps, setMyApps] = useState<MyApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,14 +52,19 @@ const CandidateApplicationsPage = () => {
     load();
   }, [load]);
 
+  /** Calls GET /jobs/applications/:id/growth-report/ (GrowthReportView) and shows the JSON body in the modal. */
   const openGrowthReport = async (applicationId: number) => {
     setGrowthModal({ appId: applicationId, data: null, loading: true, error: '' });
     try {
       const data = await api.getGrowthReport(applicationId);
       setGrowthModal({ appId: applicationId, data, loading: false, error: '' });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load report';
-      setGrowthModal({ appId: applicationId, data: null, loading: false, error: msg });
+      setGrowthModal({
+        appId: applicationId,
+        data: null,
+        loading: false,
+        error: formatGrowthReportApiError(e),
+      });
     }
   };
 
@@ -124,15 +143,19 @@ const CandidateApplicationsPage = () => {
                       )}
                     </td>
                     <td className="py-3">
-                      {app.status === 'rejected' && (
-                        <button
-                          type="button"
-                          onClick={() => void openGrowthReport(app.id)}
-                          className="text-xs font-bold uppercase px-3 py-1.5 rounded-xl bg-brand-black text-white hover:bg-brand-green flex items-center gap-1 w-fit"
-                        >
-                          <BookOpen size={14} /> Growth report
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        disabled={app.cv_is_parsed === false}
+                        title={
+                          app.cv_is_parsed === false
+                            ? 'Your CV must be analyzed first — upload again on My CV.'
+                            : 'Open career growth report from the server'
+                        }
+                        onClick={() => void openGrowthReport(app.id)}
+                        className="btn-secondary text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 w-fit disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-brand-green"
+                      >
+                        <BookOpen size={14} /> Growth report
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -156,13 +179,23 @@ const CandidateApplicationsPage = () => {
                 <Loader2 className="animate-spin" /> Loading…
               </div>
             )}
-            {growthModal.error && <p className="text-red-600 text-sm">{growthModal.error}</p>}
+            {growthModal.error && (
+              <p className="text-red-600 text-sm border border-red-100 bg-red-50/80 rounded-xl p-3">
+                {growthModal.error}
+              </p>
+            )}
             {growthModal.data && (
               <div className="space-y-6 text-sm">
+                <p className="text-xs text-gray-500">
+                  From{' '}
+                  <code className="text-gray-700 bg-gray-100 px-1 rounded">
+                    GET /jobs/applications/{growthModal.appId}/growth-report/
+                  </code>
+                </p>
                 <div>
                   <h4 className="font-bold text-brand-black mb-2">Skill gaps</h4>
                   <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    {growthModal.data.skill_gaps?.map((s, i) => (
+                    {(growthModal.data.skill_gaps ?? []).map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
                   </ul>
@@ -170,22 +203,21 @@ const CandidateApplicationsPage = () => {
                 <div>
                   <h4 className="font-bold text-brand-black mb-2">Recommendations</h4>
                   <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    {growthModal.data.recommendations?.map((s, i) => (
+                    {(growthModal.data.recommendations ?? []).map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
                   </ul>
                 </div>
-                {growthModal.data.suggested_resources &&
-                  growthModal.data.suggested_resources.length > 0 && (
-                    <div>
-                      <h4 className="font-bold text-brand-black mb-2">Suggested resources</h4>
-                      <ul className="list-disc list-inside text-gray-600 space-y-1">
-                        {growthModal.data.suggested_resources.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                {(growthModal.data.suggested_resources?.length ?? 0) > 0 && (
+                  <div>
+                    <h4 className="font-bold text-brand-black mb-2">Suggested resources</h4>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1">
+                      {growthModal.data.suggested_resources!.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
             <button
