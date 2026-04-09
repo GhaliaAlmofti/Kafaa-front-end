@@ -44,6 +44,8 @@ type BackendCompany = {
   company_field: string;
   is_blocked?: boolean;
   logo?: string | null;
+  secondary_logo?: string | null;
+  google_maps_url?: string;
   website?: string;
   linkedin_url?: string;
   twitter_url?: string;
@@ -58,6 +60,8 @@ function mapCompany(company: BackendCompany): Company {
     company_field: company.company_field,
     is_blocked: Boolean(company.is_blocked),
     logo_url: company.logo ?? null,
+    secondary_logo_url: company.secondary_logo ?? null,
+    google_maps_url: company.google_maps_url || undefined,
     website: company.website || undefined,
     linkedin_url: company.linkedin_url || undefined,
     twitter_url: company.twitter_url || undefined,
@@ -177,6 +181,12 @@ export const api = {
   signup: (data: Record<string, unknown>) =>
     request('/signup/', { method: 'POST', body: JSON.stringify(data) }) as Promise<SignupResponse>,
 
+  recruiterSignup: (data: Record<string, unknown>) =>
+    request('/recruiter-signup/', { method: 'POST', body: JSON.stringify(data) }) as Promise<SignupResponse>,
+
+  createProfile: (body: Pick<Profile, 'major' | 'city' | 'bio'>): Promise<Profile> =>
+    request('/profile/', { method: 'POST', body: JSON.stringify(body) }) as Promise<Profile>,
+
   login: (data: LoginCredentials) =>
     request('/login/', { method: 'POST', body: JSON.stringify(data) }) as Promise<LoginResponse>,
 
@@ -277,15 +287,17 @@ export const api = {
       name: string;
       about: string;
       company_field: string;
+      google_maps_url: string;
       website: string;
       linkedin_url: string;
       twitter_url: string;
       facebook_url: string;
-    }> & { logo?: File | null },
+    }> & { logo?: File | null; secondary_logo?: File | null },
   ): Promise<Company> => {
     const logoFile = body.logo;
-    const hasLogo = logoFile instanceof File;
-    if (hasLogo) {
+    const secondaryLogoFile = body.secondary_logo;
+    const hasFiles = logoFile instanceof File || secondaryLogoFile instanceof File;
+    if (hasFiles) {
       const fd = new FormData();
       (Object.entries(body) as [string, unknown][]).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
@@ -293,12 +305,16 @@ export const api = {
           if (value instanceof File) fd.append('logo', value);
           return;
         }
+        if (key === 'secondary_logo') {
+          if (value instanceof File) fd.append('secondary_logo', value);
+          return;
+        }
         fd.append(key, String(value));
       });
       const c = (await request('/companies/me/', { method: 'PATCH', body: fd })) as BackendCompany;
       return mapCompany(c);
     }
-    const { logo: _omit, ...rest } = body;
+    const { logo: _omitLogo, secondary_logo: _omitSecondary, ...rest } = body;
     const c = (await request('/companies/me/', {
       method: 'PATCH',
       body: JSON.stringify(rest),
@@ -347,7 +363,22 @@ export const api = {
       body: JSON.stringify(body),
     }) as Promise<JobApplication>,
 
-  patchJob: (jobId: number, body: Partial<Pick<Job, 'is_active' | 'title' | 'description' | 'location'>>) =>
+  patchJob: (
+    jobId: number,
+    body: Partial<
+      Pick<
+        Job,
+        | 'is_active'
+        | 'title'
+        | 'description'
+        | 'location'
+        | 'salary_min'
+        | 'salary_max'
+        | 'seniority'
+        | 'work_mode'
+      >
+    >,
+  ) =>
     request(`/jobs/${jobId}/`, {
       method: 'PATCH',
       body: JSON.stringify(body),

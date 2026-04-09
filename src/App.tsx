@@ -25,6 +25,8 @@ import RecruiterLayout from './layouts/RecruiterLayout';
 import RecruiterIndexPage from './pages/recruiter/RecruiterIndexPage';
 import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
 import RecruiterCompanyPage from './pages/recruiter/RecruiterCompanyPage';
+import RecruiterRegisterPage from './pages/recruiter/RecruiterRegisterPage';
+import CandidateOnboardingPage from './pages/candidate/CandidateOnboardingPage';
 import MyAccount from './pages/MyAccount';
 import RedirectToRoleAccount from './components/RedirectToRoleAccount';
 import { useAuth } from './context/AuthContext';
@@ -65,6 +67,7 @@ const ProtectedRoute = ({
 };
 
 function isAppShellPath(pathname: string) {
+  if (pathname.startsWith('/recruiter/register')) return false;
   return (
     /^\/dashboard(\/|$)/.test(pathname) ||
     /^\/admin(\/|$)/.test(pathname) ||
@@ -86,6 +89,7 @@ function AppShell() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
+          <Route path="/recruiter/register" element={<RecruiterRegisterPage />} />
           <Route path="/jobs" element={<Jobs />} />
 
           <Route
@@ -120,6 +124,7 @@ function AppShell() {
             }
           >
             <Route index element={<CandidateOverview />} />
+            <Route path="onboarding" element={<CandidateOnboardingPage />} />
             <Route path="applications" element={<CandidateApplicationsPage />} />
             <Route path="cv" element={<CandidateCvPage />} />
             <Route path="jobs" element={<CandidateJobsPage />} />

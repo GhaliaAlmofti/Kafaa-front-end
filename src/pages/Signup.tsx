@@ -52,7 +52,13 @@ const Signup = () => {
             <UserPlus size={32} />
           </div>
           <h2 className="text-3xl font-bold">Create account</h2>
-          <p className="text-gray-500 mt-2">Sign up as a candidate. Recruiter accounts are created by an admin.</p>
+          <p className="text-gray-500 mt-2">
+            Sign up as a candidate. Employers can{' '}
+            <Link to="/recruiter/register" className="text-brand-primary font-bold hover:underline">
+              register a company account
+            </Link>
+            .
+          </p>
         </div>
 
         {error && (

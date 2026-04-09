@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Send, FileText, Search } from 'lucide-react';
 import { api } from '../services/api';
 import SidebarBrand from '../components/SidebarBrand';
 import SidebarUserMenu from '../components/SidebarUserMenu';
+import { useAuth } from '../context/AuthContext';
+import { candidateNeedsProfileOnboarding } from '../utils/authRedirect';
 
 export type CandidateLayoutContext = {
   selectedCvId: number | null;
@@ -25,6 +27,8 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 const CandidateLayout = () => {
+  const { user } = useAuth();
+  const location = useLocation();
   const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -37,6 +41,14 @@ const CandidateLayout = () => {
       })
       .catch(() => {});
   }, []);
+
+  if (
+    user?.role === 'CANDIDATE' &&
+    candidateNeedsProfileOnboarding(user) &&
+    !location.pathname.startsWith('/dashboard/onboarding')
+  ) {
+    return <Navigate to="/dashboard/onboarding" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">

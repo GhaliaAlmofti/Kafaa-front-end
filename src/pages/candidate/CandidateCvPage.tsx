@@ -113,6 +113,32 @@ const CandidateCvPage = () => {
     }
   };
 
+  const startRename = (cv: CV) => {
+    setRenamingId(cv.id);
+    setRenameDraft(cvLabel(cv));
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameDraft('');
+  };
+
+  const submitRename = async (cvId: number) => {
+    const name = renameDraft.trim();
+    if (!name) return;
+    try {
+      setRenameBusy(true);
+      setError('');
+      await api.patchCVDisplayName(cvId, name);
+      await load();
+      cancelRename();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not rename this CV.');
+    } finally {
+      setRenameBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageLayout.Shell maxWidth="wide">

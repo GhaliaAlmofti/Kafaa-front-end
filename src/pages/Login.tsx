@@ -104,11 +104,19 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm text-gray-500">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-brand-primary font-bold hover:underline">
-            Create one
-          </Link>
+        <div className="mt-8 text-center text-sm text-gray-500 space-y-2">
+          <p>
+            Don&apos;t have an account?{' '}
+            <Link to="/signup" className="text-brand-primary font-bold hover:underline">
+              Create one
+            </Link>
+          </p>
+          <p>
+            Hiring?{' '}
+            <Link to="/recruiter/register" className="text-brand-primary font-bold hover:underline">
+              Register as an employer
+            </Link>
+          </p>
         </div>
       </motion.div>
     </div>

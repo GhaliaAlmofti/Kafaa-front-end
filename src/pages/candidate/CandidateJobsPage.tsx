@@ -13,16 +13,24 @@ import {
   Loader2,
   FileText,
   Zap,
+  Banknote,
 } from 'lucide-react';
 import { formatPostedDate } from '../../utils/formatPostedDate';
+import {
+  jobMatchesCityFilter,
+  jobMatchesSalaryFilter,
+  jobMatchesSeniorityFilter,
+  jobMatchesWorkModeFilter,
+} from '../../utils/jobFilters';
 import { api } from '../../services/api';
 import PageLayout from '../../components/PageLayout';
-import type { Job, MyApplication } from '../../types';
+import { JobSearchFilters } from '../../components/candidate/JobSearchFilters';
+import type { CV, Job, MyApplication } from '../../types';
 
 const CandidateJobsPage = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [myApps, setMyApps] = useState<MyApplication[]>([]);
-  const [cvs, setCvs] = useState<{ id: number; is_parsed: boolean }[]>([]);
+  const [cvs, setCvs] = useState<Pick<CV, 'id' | 'is_parsed' | 'display_name'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [applyModalJob, setApplyModalJob] = useState<Job | null>(null);
   const [modalCvId, setModalCvId] = useState<number | null>(null);
@@ -30,6 +38,11 @@ const CandidateJobsPage = () => {
   const [modalError, setModalError] = useState('');
   const [jobSearch, setJobSearch] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [salaryMinFilter, setSalaryMinFilter] = useState('');
+  const [salaryMaxFilter, setSalaryMaxFilter] = useState('');
+  const [seniorityFilter, setSeniorityFilter] = useState('');
+  const [workModeFilter, setWorkModeFilter] = useState('');
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -42,7 +55,7 @@ const CandidateJobsPage = () => {
       ]);
       setJobs(jobsData);
       setMyApps(appsData);
-      setCvs(cvData.map((c) => ({ id: c.id, is_parsed: c.is_parsed })));
+      setCvs(cvData.map((c) => ({ id: c.id, is_parsed: c.is_parsed, display_name: c.display_name })));
     } catch {
       setJobs([]);
     } finally {
@@ -56,6 +69,24 @@ const CandidateJobsPage = () => {
 
   const appliedJobIds = useMemo(() => new Set(myApps.map((a) => a.job)), [myApps]);
 
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>();
+    jobs.forEach((j) => {
+      const loc = j.location?.trim();
+      if (loc) set.add(loc);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [jobs]);
+
+  const sidebarActiveCount = useMemo(() => {
+    let n = 0;
+    if (cityFilter.trim()) n += 1;
+    if (salaryMinFilter.trim() || salaryMaxFilter.trim()) n += 1;
+    if (seniorityFilter) n += 1;
+    if (workModeFilter) n += 1;
+    return n;
+  }, [cityFilter, salaryMinFilter, salaryMaxFilter, seniorityFilter, workModeFilter]);
+
   const filteredJobs = useMemo(() => {
     const q = jobSearch.trim().toLowerCase();
     return jobs.filter((job) => {
@@ -65,9 +96,36 @@ const CandidateJobsPage = () => {
         job.description.toLowerCase().includes(q) ||
         job.location.toLowerCase().includes(q);
       const matchT = !jobTypeFilter || job.job_type === jobTypeFilter;
-      return matchQ && matchT;
+      const matchCity = jobMatchesCityFilter(job, cityFilter);
+      const matchSalary = jobMatchesSalaryFilter(job, salaryMinFilter, salaryMaxFilter);
+      const matchSeniority = jobMatchesSeniorityFilter(job, seniorityFilter);
+      const matchWork = jobMatchesWorkModeFilter(job, workModeFilter);
+      return matchQ && matchT && matchCity && matchSalary && matchSeniority && matchWork;
     });
-  }, [jobs, jobSearch, jobTypeFilter]);
+  }, [
+    jobs,
+    jobSearch,
+    jobTypeFilter,
+    cityFilter,
+    salaryMinFilter,
+    salaryMaxFilter,
+    seniorityFilter,
+    workModeFilter,
+  ]);
+
+  const clearSidebarFilters = () => {
+    setCityFilter('');
+    setSalaryMinFilter('');
+    setSalaryMaxFilter('');
+    setSeniorityFilter('');
+    setWorkModeFilter('');
+  };
+
+  const clearAllFilters = () => {
+    setJobSearch('');
+    setJobTypeFilter('');
+    clearSidebarFilters();
+  };
 
   const openEasyApplyModal = (job: Job) => {
     setModalError('');
@@ -117,7 +175,24 @@ const CandidateJobsPage = () => {
       title="Find jobs"
       subtitle="Search open roles. Use Easy apply on a job to choose which CV to send."
     >
-      <section className="bg-white rounded-3xl border border-gray-100 p-6 md:p-8 flex flex-col gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+        <JobSearchFilters
+          cities={cityOptions}
+          city={cityFilter}
+          onCityChange={setCityFilter}
+          salaryMin={salaryMinFilter}
+          salaryMax={salaryMaxFilter}
+          onSalaryMinChange={setSalaryMinFilter}
+          onSalaryMaxChange={setSalaryMaxFilter}
+          seniority={seniorityFilter}
+          onSeniorityChange={setSeniorityFilter}
+          workMode={workModeFilter}
+          onWorkModeChange={setWorkModeFilter}
+          onClear={clearSidebarFilters}
+          activeFilterCount={sidebarActiveCount}
+        />
+
+        <section className="flex-1 min-w-0 w-full bg-white rounded-3xl border border-gray-100 p-6 md:p-8 flex flex-col gap-6">
         <div className="flex flex-col md:flex-row md:items-end gap-4">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -185,6 +260,30 @@ const CandidateJobsPage = () => {
                   <Briefcase size={14} />
                   {job.job_type}
                 </span>
+                {job.work_mode ? (
+                  <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-brand-primary-soft text-brand-primary-deep">
+                    {job.work_mode === 'on_site'
+                      ? 'On-site'
+                      : job.work_mode === 'remote'
+                        ? 'Remote'
+                        : 'Hybrid'}
+                  </span>
+                ) : null}
+                {job.seniority ? (
+                  <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                    {job.seniority}
+                  </span>
+                ) : null}
+                {job.salary_min != null || job.salary_max != null ? (
+                  <span className="flex items-center gap-1 text-gray-700 font-semibold tabular-nums">
+                    <Banknote size={14} className="text-brand-primary" aria-hidden />
+                    {job.salary_min != null && job.salary_max != null
+                      ? `${job.salary_min.toLocaleString()}–${job.salary_max.toLocaleString()} LYD/mo`
+                      : job.salary_min != null
+                        ? `From ${job.salary_min.toLocaleString()} LYD/mo`
+                        : `Up to ${job.salary_max!.toLocaleString()} LYD/mo`}
+                  </span>
+                ) : null}
                 {job.created_at && (
                   <span className="flex items-center gap-1 text-gray-400">
                     <Calendar size={14} aria-hidden />
@@ -234,19 +333,13 @@ const CandidateJobsPage = () => {
         {filteredJobs.length === 0 ? (
           <p className="text-gray-400 text-center py-12 border border-dashed border-gray-200 rounded-2xl text-sm">
             No jobs match your filters.{' '}
-            <button
-              type="button"
-              className="text-brand-primary font-semibold"
-              onClick={() => {
-                setJobSearch('');
-                setJobTypeFilter('');
-              }}
-            >
+            <button type="button" className="text-brand-primary font-semibold" onClick={clearAllFilters}>
               Clear filters
             </button>
           </p>
         ) : null}
-      </section>
+        </section>
+      </div>
 
       {applyModalJob && (
         <div

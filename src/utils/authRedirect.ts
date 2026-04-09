@@ -23,7 +23,12 @@ export function meResponseToUser(data: MeResponse): User {
   };
 }
 
-/** After login or signup verification: admins/recruiters go to their app; candidates with no CV go to upload. */
+/** Candidates without a Profile row need the profile wizard first. */
+export function candidateNeedsProfileOnboarding(user: User): boolean {
+  return user.role === 'CANDIDATE' && (!user.profiles || user.profiles.length === 0);
+}
+
+/** After login or signup verification: admins/recruiters go to their app; candidates complete profile then CV. */
 export async function navigateAfterAuth(navigate: NavigateFunction, user: User) {
   if (user.role === 'ADMIN') {
     navigate('/admin');
@@ -31,6 +36,10 @@ export async function navigateAfterAuth(navigate: NavigateFunction, user: User) 
   }
   if (user.role === 'RECRUITER') {
     navigate('/recruiter');
+    return;
+  }
+  if (candidateNeedsProfileOnboarding(user)) {
+    navigate('/dashboard/onboarding');
     return;
   }
   try {
