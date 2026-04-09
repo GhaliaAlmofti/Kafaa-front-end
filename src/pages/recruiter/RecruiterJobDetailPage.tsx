@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -17,10 +18,12 @@ import type { JobApplication, GrowthReport } from '../../types';
 import type { RecruiterLayoutContext } from '../../layouts/RecruiterLayout';
 import PageLayout from '../../components/PageLayout';
 import { GrowthReportModal } from '../../components/GrowthReportModal';
+import { MatchScoreExplainability } from '../../components/MatchScoreExplainability';
 
 const STATUS_ACTIONS: JobApplication['status'][] = ['reviewed', 'accepted', 'rejected'];
 
 const RecruiterJobDetailPage = () => {
+  const { t } = useTranslation();
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { jobs, setJobs, loading: layoutLoading, error: layoutError } =
@@ -247,7 +250,11 @@ const RecruiterJobDetailPage = () => {
                           )}
                         </td>
                         <td className="py-3 pr-4">
-                          {app.match_score != null ? `${app.match_score}%` : '—'}
+                          <MatchScoreExplainability
+                            score={app.match_score}
+                            matched={app.match_matched_skills}
+                            missing={app.match_missing_skills}
+                          />
                         </td>
                         <td className="py-3 pr-4 capitalize text-gray-600">{app.status}</td>
                         <td className="py-3">
@@ -332,7 +339,17 @@ const RecruiterJobDetailPage = () => {
                             : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {app.match_score != null ? `${app.match_score}%` : 'N/A'}
+                      {app.match_score != null ? (
+                        <MatchScoreExplainability
+                          score={app.match_score}
+                          matched={app.match_matched_skills}
+                          missing={app.match_missing_skills}
+                          variant="pill"
+                          className="text-inherit"
+                        />
+                      ) : (
+                        'N/A'
+                      )}
                     </div>
                   </div>
 
@@ -367,13 +384,13 @@ const RecruiterJobDetailPage = () => {
       <GrowthReportModal
         open={growthForApp !== null}
         onClose={() => setGrowthForApp(null)}
-        title="Growth report"
+        title={t('candidateGrowth.title')}
         applicationId={growthForApp?.id ?? null}
         showApplicationId
         loading={growthForApp?.loading ?? false}
         error={growthForApp?.error ?? ''}
         data={growthForApp?.data ?? null}
-        dismissLabel="Close"
+        dismissLabel={t('common.close')}
       />
     </PageLayout>
   );

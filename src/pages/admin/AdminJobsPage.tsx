@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import {
   Plus,
@@ -19,6 +20,7 @@ import type { Company, AdminJobRow, JobApplication, GrowthReport } from '../../t
 import { api } from '../../services/api';
 import PageLayout from '../../components/PageLayout';
 import { GrowthReportModal } from '../../components/GrowthReportModal';
+import { MatchScoreExplainability } from '../../components/MatchScoreExplainability';
 
 const STATUS_ACTIONS: JobApplication['status'][] = ['reviewed', 'accepted', 'rejected'];
 
@@ -43,6 +45,7 @@ function scorePillClass(score: number | null) {
 }
 
 const AdminJobsPage = () => {
+  const { t } = useTranslation();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [adminJobs, setAdminJobs] = useState<AdminJobRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -338,9 +341,13 @@ const AdminJobsPage = () => {
                                     <span className="text-[10px] font-black uppercase opacity-80">
                                       Match
                                     </span>
-                                    <span className="text-xl font-black tabular-nums">
-                                      {app.match_score != null ? `${app.match_score}%` : '—'}
-                                    </span>
+                                    <MatchScoreExplainability
+                                      score={app.match_score}
+                                      matched={app.match_matched_skills}
+                                      missing={app.match_missing_skills}
+                                      variant="pill"
+                                      className="text-inherit"
+                                    />
                                   </div>
                                   <div className="min-w-0 flex-1 rounded-xl bg-gray-50/80 px-3 py-2.5 border border-gray-100/80">
                                     {hasReason ? (
@@ -506,13 +513,13 @@ const AdminJobsPage = () => {
       <GrowthReportModal
         open={growthForApp !== null}
         onClose={() => setGrowthForApp(null)}
-        title="Growth report"
+        title={t('candidateGrowth.title')}
         applicationId={growthForApp?.id ?? null}
         showApplicationId
         loading={growthForApp?.loading ?? false}
         error={growthForApp?.error ?? ''}
         data={growthForApp?.data ?? null}
-        dismissLabel="Close"
+        dismissLabel={t('common.close')}
       />
     </PageLayout>
   );
