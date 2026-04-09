@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BrowserRouter as Router,
   Routes,
@@ -40,11 +41,12 @@ const ProtectedRoute = ({
   roles?: UserRole[];
 }) => {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">
-        Loading…
+        {t('app.protectedLoading')}
       </div>
     );
   }
@@ -78,6 +80,7 @@ function isAppShellPath(pathname: string) {
 function AppShell() {
   const { pathname } = useLocation();
   const shell = isAppShellPath(pathname);
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -161,17 +164,17 @@ function AppShell() {
               </span>
             </div>
             <p className="text-gray-500 text-sm mb-8">
-              © 2026 Career Vision. Building the future of Libyan recruitment.
+              {t('footer.copyright')}
             </p>
             <div className="flex justify-center gap-8 text-gray-400 text-sm">
               <a href="#" className="hover:text-brand-primary transition-colors">
-                Privacy Policy
+                {t('footer.privacy')}
               </a>
               <a href="#" className="hover:text-brand-primary transition-colors">
-                Terms of Service
+                {t('footer.terms')}
               </a>
               <a href="#" className="hover:text-brand-primary transition-colors">
-                Contact Us
+                {t('footer.contact')}
               </a>
             </div>
           </div>

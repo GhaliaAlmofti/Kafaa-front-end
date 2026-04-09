@@ -2,6 +2,7 @@ import React from 'react';
 import { CircleDot, Eye, Send, ThumbsDown, ThumbsUp, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { JobApplication } from '../types';
+import i18n from '../i18n';
 
 export type ApplicationTimelineEvent = {
   id: string;
@@ -25,7 +26,8 @@ type ApplicationTimelineProps = {
 function formatEventTime(value: string | Date): string {
   const d = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, {
+  const loc = i18n.language.startsWith('ar') ? 'ar' : 'en';
+  return d.toLocaleString(loc, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -33,12 +35,12 @@ function formatEventTime(value: string | Date): string {
   });
 }
 
-function iconForEvent(title: string, index: number): LucideIcon {
-  const t = title.toLowerCase();
-  if (t.includes('submit')) return Send;
-  if (t.includes('view')) return Eye;
-  if (t.includes('accept')) return ThumbsUp;
-  if (t.includes('reject') || t.includes('not selected') || t.includes('closed')) return ThumbsDown;
+function iconForEvent(eventId: string, index: number): LucideIcon {
+  if (eventId === 'submitted') return Send;
+  if (eventId === 'status-reviewed') return Eye;
+  if (eventId === 'status-accepted') return ThumbsUp;
+  if (eventId === 'status-rejected') return ThumbsDown;
+  if (eventId.startsWith('status-')) return CircleDot;
   return index === 0 ? Send : CircleDot;
 }
 
@@ -49,13 +51,15 @@ function iconForEvent(title: string, index: number): LucideIcon {
 export function ApplicationTimeline({
   events,
   className,
-  ariaLabel = 'Application activity',
-  emptyMessage = 'No activity recorded yet.',
+  ariaLabel,
+  emptyMessage,
 }: ApplicationTimelineProps) {
+  const aria = ariaLabel ?? i18n.t('timeline.activityLabel');
+  const empty = emptyMessage ?? i18n.t('timeline.empty');
   if (events.length === 0) {
     return (
       <p className={cn('text-xs text-gray-400 py-2', className)} role="status">
-        {emptyMessage}
+        {empty}
       </p>
     );
   }
@@ -63,11 +67,11 @@ export function ApplicationTimeline({
   return (
     <ol
       className={cn('relative border-l-2 border-gray-200 pl-5 space-y-0', className)}
-      aria-label={ariaLabel}
+      aria-label={aria}
     >
       {events.map((ev, index) => {
         const isLast = index === events.length - 1;
-        const Icon = iconForEvent(ev.title, index);
+        const Icon = iconForEvent(ev.id, index);
         const hasTime = ev.occurredAt != null && ev.occurredAt !== '';
         return (
           <li key={ev.id} className={cn(!isLast && 'pb-5')}>
@@ -93,7 +97,7 @@ export function ApplicationTimeline({
                   </time>
                 ) : (
                   <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                    Time not logged
+                    {i18n.t('timeline.timeNotLogged')}
                   </span>
                 )}
               </div>
@@ -108,13 +112,6 @@ export function ApplicationTimeline({
   );
 }
 
-const STATUS_TIMELINE_LABEL: Record<JobApplication['status'], { title: string; detail?: string }> = {
-  pending: { title: 'Awaiting review' },
-  reviewed: { title: 'Viewed', detail: 'Recruiter opened your application.' },
-  accepted: { title: 'Accepted', detail: 'This application was marked as accepted.' },
-  rejected: { title: 'Not selected', detail: 'This application was closed for this role.' },
-};
-
 /**
  * Builds a minimal timeline from fields available on list endpoints.
  * When the API adds per-event timestamps, pass those into {@link ApplicationTimeline} instead.
@@ -123,9 +120,10 @@ export function buildApplicationTimelineEvents(app: {
   applied_at: string;
   status: JobApplication['status'];
 }): ApplicationTimelineEvent[] {
+  const t = i18n.getFixedT(i18n.language);
   const submitted: ApplicationTimelineEvent = {
     id: 'submitted',
-    title: 'Submitted',
+    title: t('timeline.submitted'),
     occurredAt: app.applied_at,
   };
 
@@ -133,14 +131,21 @@ export function buildApplicationTimelineEvents(app: {
     return [submitted];
   }
 
-  const meta = STATUS_TIMELINE_LABEL[app.status];
+  const meta: Record<JobApplication['status'], { title: string; detail?: string }> = {
+    pending: { title: t('timeline.awaitingReview') },
+    reviewed: { title: t('timeline.viewed'), detail: t('timeline.viewedDetail') },
+    accepted: { title: t('timeline.accepted'), detail: t('timeline.acceptedDetail') },
+    rejected: { title: t('timeline.notSelected'), detail: t('timeline.notSelectedDetail') },
+  };
+
+  const m = meta[app.status];
   return [
     submitted,
     {
       id: `status-${app.status}`,
-      title: meta.title,
+      title: m.title,
       occurredAt: null,
-      detail: meta.detail,
+      detail: m.detail,
     },
   ];
 }

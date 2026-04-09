@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Send, FileText, Search } from 'lucide-react';
 import { api } from '../services/api';
@@ -12,13 +13,6 @@ export type CandidateLayoutContext = {
   setSelectedCvId: React.Dispatch<React.SetStateAction<number | null>>;
 };
 
-const navItems: { to: string; end?: boolean; label: string; icon: React.ReactNode }[] = [
-  { to: '/dashboard', end: true, label: 'Overview', icon: <LayoutDashboard size={18} /> },
-  { to: '/dashboard/applications', label: 'Applications', icon: <Send size={18} /> },
-  { to: '/dashboard/cv', label: 'My CV', icon: <FileText size={18} /> },
-  { to: '/dashboard/jobs', label: 'Find jobs', icon: <Search size={18} /> },
-];
-
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${
     isActive
@@ -27,9 +21,20 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 const CandidateLayout = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const location = useLocation();
   const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
+
+  const navItems = useMemo(
+    (): { to: string; end?: boolean; label: string; icon: React.ReactNode }[] => [
+      { to: '/dashboard', end: true, label: t('layouts.candidateNavOverview'), icon: <LayoutDashboard size={18} /> },
+      { to: '/dashboard/applications', label: t('layouts.candidateNavApplications'), icon: <Send size={18} /> },
+      { to: '/dashboard/cv', label: t('layouts.candidateNavCv'), icon: <FileText size={18} /> },
+      { to: '/dashboard/jobs', label: t('layouts.candidateNavJobs'), icon: <Search size={18} /> },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     api
@@ -55,7 +60,7 @@ const CandidateLayout = () => {
       <aside className="shrink-0 w-full md:w-56 md:min-h-screen border-b md:border-b-0 md:border-r border-gray-200 bg-white flex flex-col">
         <SidebarBrand />
         <p className="hidden md:block text-[10px] font-black uppercase tracking-wider text-gray-400 px-4 pt-3 pb-1">
-          Career hub
+          {t('layouts.candidateHub')}
         </p>
         <nav className="flex md:flex-col gap-1 p-3 md:px-3 overflow-x-auto md:overflow-visible md:flex-1 md:min-h-0">
           {navItems.map(({ to, end, label, icon }) => (

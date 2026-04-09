@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Briefcase, MapPin, Search, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { formatPostedDate } from '../utils/formatPostedDate';
@@ -7,6 +8,7 @@ import type { Job } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 const Jobs = () => {
+  const { t } = useTranslation();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,7 +24,7 @@ const Jobs = () => {
         const data = await api.listJobs();
         setJobs(data);
       } catch {
-        setError('Could not load jobs.');
+        setError(t('jobsPage.loadError'));
       } finally {
         setLoading(false);
       }
@@ -46,7 +48,7 @@ const Jobs = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">
-        Loading jobs…
+        {t('jobsPage.loading')}
       </div>
     );
   }
@@ -54,21 +56,21 @@ const Jobs = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold text-brand-black mb-2">Browse jobs</h1>
+        <h1 className="text-4xl font-bold text-brand-black mb-2">{t('jobsPage.title')}</h1>
         <p className="text-gray-500 mb-6">
-          Open roles from verified companies.{' '}
+          {t('jobsPage.subtitleOpen')}{' '}
           {user?.role === 'CANDIDATE' ? (
             <Link to="/dashboard" className="text-brand-primary font-semibold hover:underline">
-              Go to your dashboard to apply with a CV
+              {t('jobsPage.goDashboardApply')}
             </Link>
           ) : user ? (
-            <span className="text-gray-400">Switch to a candidate account to apply.</span>
+            <span className="text-gray-400">{t('jobsPage.switchCandidate')}</span>
           ) : (
             <>
               <Link to="/login" className="text-brand-primary font-semibold hover:underline">
-                Sign in
+                {t('jobsPage.signInAsCandidate')}
               </Link>{' '}
-              as a candidate to apply.
+              {t('jobsPage.signInAsCandidateSuffix')}
             </>
           )}
         </p>
@@ -78,7 +80,7 @@ const Jobs = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="search"
-              placeholder="Search jobs…"
+              placeholder={t('jobsPage.searchPlaceholder')}
               className="input-field pl-10 w-full"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -89,11 +91,11 @@ const Jobs = () => {
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
           >
-            <option value="">All types</option>
-            <option value="full-time">Full-time</option>
-            <option value="part-time">Part-time</option>
-            <option value="internship">Internship</option>
-            <option value="freelance">Freelance</option>
+            <option value="">{t('jobsPage.allTypes')}</option>
+            <option value="full-time">{t('jobTypesApi.full-time')}</option>
+            <option value="part-time">{t('jobTypesApi.part-time')}</option>
+            <option value="internship">{t('jobTypesApi.internship')}</option>
+            <option value="freelance">{t('jobTypesApi.freelance')}</option>
           </select>
         </div>
 
@@ -131,7 +133,7 @@ const Jobs = () => {
                   </span>
                   <span className="flex items-center gap-1">
                     <Briefcase size={14} />
-                    {job.job_type}
+                    {t(`jobTypesApi.${job.job_type}`, { defaultValue: job.job_type })}
                   </span>
                   {job.created_at && (
                     <span className="flex items-center gap-1 text-gray-400">
@@ -150,11 +152,11 @@ const Jobs = () => {
                 >
                   {expanded ? (
                     <>
-                      <ChevronUp size={14} /> Show less
+                      <ChevronUp size={14} /> {t('jobsPage.showLess')}
                     </>
                   ) : (
                     <>
-                      <ChevronDown size={14} /> Read more
+                      <ChevronDown size={14} /> {t('jobsPage.readMore')}
                     </>
                   )}
                 </button>
@@ -164,7 +166,7 @@ const Jobs = () => {
         </div>
         {filtered.length === 0 && !error && (
           <p className="text-gray-400 text-center py-16 border border-dashed border-gray-200 rounded-2xl">
-            No listings match your search.{' '}
+            {t('jobsPage.noMatch')}{' '}
             <button
               type="button"
               className="text-brand-primary font-semibold"
@@ -173,7 +175,7 @@ const Jobs = () => {
                 setTypeFilter('');
               }}
             >
-              Reset filters
+              {t('jobsPage.resetFilters')}
             </button>
           </p>
         )}

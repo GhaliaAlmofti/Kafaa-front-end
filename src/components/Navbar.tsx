@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { LogOut, User, Menu, X, ChevronDown, ChevronUp, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatarDisplay from './UserAvatarDisplay';
+import { LanguageToggle } from './LanguageToggle';
 
 const Navbar = () => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -52,12 +55,13 @@ const Navbar = () => {
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
+          <LanguageToggle compact />
           <Link to="/" className="text-gray-600 hover:text-brand-primary font-medium transition-colors">
-            Home
+            {t('nav.home')}
           </Link>
           <Link to="/jobs" className="text-gray-600 hover:text-brand-primary font-medium transition-colors">
-            Browse Jobs
+            {t('nav.browseJobs')}
           </Link>
 
           {user ? (
@@ -67,7 +71,7 @@ const Navbar = () => {
                 className="inline-flex items-center gap-2 font-semibold text-brand-primary hover:text-brand-primary-deep transition-colors"
               >
                 <LayoutDashboard size={18} aria-hidden />
-                Dashboard
+                {t('nav.dashboard')}
               </Link>
               <div className="relative" ref={userMenuRef}>
                 <button
@@ -76,14 +80,14 @@ const Navbar = () => {
                   className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full bg-white border border-gray-100 transition-colors hover:border-gray-300"
                   aria-expanded={userMenuOpen}
                   aria-haspopup="menu"
-                  aria-label="User menu"
+                  aria-label={t('nav.userMenu')}
                 >
                   <UserAvatarDisplay
                     photoUrl={user.avatar_url}
-                    alt={user.username || 'Account'}
+                    alt={user.username || t('nav.myAccount')}
                   />
                   <span className="font-bold text-gray-900 text-sm max-w-[140px] truncate">
-                    {user.username || 'Account'}
+                    {user.username || t('nav.myAccount')}
                   </span>
                   {userMenuOpen ? (
                     <ChevronUp size={16} className="text-gray-500 shrink-0" aria-hidden />
@@ -104,7 +108,7 @@ const Navbar = () => {
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-left font-bold text-gray-900 hover:bg-gray-50 transition-colors"
                     >
                       <User size={18} className="shrink-0 text-brand-primary" aria-hidden />
-                      My account
+                      {t('nav.myAccount')}
                     </Link>
                     <div className="my-1 border-t border-gray-100" />
                     <button
@@ -114,7 +118,7 @@ const Navbar = () => {
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-left font-bold text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <LogOut size={18} className="shrink-0" aria-hidden />
-                      Logout
+                      {t('nav.logout')}
                     </button>
                   </div>
                 )}
@@ -123,10 +127,10 @@ const Navbar = () => {
           ) : (
             <div className="flex items-center gap-4">
               <Link to="/login" className="text-gray-600 font-medium hover:text-brand-primary">
-                Login
+                {t('nav.login')}
               </Link>
               <Link to="/signup" className="btn-primary">
-                Sign Up
+                {t('nav.signUp')}
               </Link>
             </div>
           )}
@@ -139,11 +143,14 @@ const Navbar = () => {
 
       {isOpen && (
         <div className="md:hidden bg-white border-b border-gray-100 p-6 space-y-4">
+          <div className="pb-2">
+            <LanguageToggle />
+          </div>
           <Link to="/" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">
-            Home
+            {t('nav.home')}
           </Link>
           <Link to="/jobs" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">
-            Browse Jobs
+            {t('nav.browseJobs')}
           </Link>
           {user ? (
             <>
@@ -153,7 +160,7 @@ const Navbar = () => {
                 className="flex items-center gap-2 font-bold text-brand-primary"
               >
                 <LayoutDashboard size={18} aria-hidden />
-                Dashboard
+                {t('nav.dashboard')}
               </Link>
               <Link
                 to="/account"
@@ -161,7 +168,7 @@ const Navbar = () => {
                 className="flex items-center gap-2 text-gray-900 font-bold"
               >
                 <User size={18} className="text-brand-primary shrink-0" aria-hidden />
-                My account
+                {t('nav.myAccount')}
               </Link>
               <button
                 type="button"
@@ -169,16 +176,16 @@ const Navbar = () => {
                 className="flex items-center gap-2 text-red-600 font-bold text-left w-full"
               >
                 <LogOut size={18} aria-hidden />
-                Logout
+                {t('nav.logout')}
               </button>
             </>
           ) : (
             <>
               <Link to="/login" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">
-                Login
+                {t('nav.login')}
               </Link>
               <Link to="/signup" onClick={() => setIsOpen(false)} className="block btn-primary text-center">
-                Sign Up
+                {t('nav.signUp')}
               </Link>
             </>
           )}

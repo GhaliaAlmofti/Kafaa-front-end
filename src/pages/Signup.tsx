@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Phone, Lock, User, AlertCircle } from 'lucide-react';
@@ -6,6 +7,7 @@ import { api } from '../services/api';
 import { SESSION_VERIFY_USER_ID_KEY } from '../utils/authRedirect';
 
 const Signup = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -31,9 +33,9 @@ const Signup = () => {
       try {
         const msg = err instanceof Error ? err.message : String(err);
         const data = JSON.parse(msg);
-        setError(Object.values(data as Record<string, unknown>).flat().join(' ') || 'Signup failed');
+        setError(Object.values(data as Record<string, unknown>).flat().join(' ') || t('auth.signupFailed'));
       } catch {
-        setError(err instanceof Error ? err.message : 'Signup failed');
+        setError(err instanceof Error ? err.message : t('auth.signupFailed'));
       }
     } finally {
       setLoading(false);
@@ -51,11 +53,11 @@ const Signup = () => {
           <div className="w-16 h-16 bg-brand-primary rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
             <UserPlus size={32} />
           </div>
-          <h2 className="text-3xl font-bold">Create account</h2>
+          <h2 className="text-3xl font-bold">{t('auth.createAccount')}</h2>
           <p className="text-gray-500 mt-2">
-            Sign up as a candidate. Employers can{' '}
+            {t('auth.signUpSubtitlePrefix')}{' '}
             <Link to="/recruiter/register" className="text-brand-primary font-bold hover:underline">
-              register a company account
+              {t('auth.registerCompanyLink')}
             </Link>
             .
           </p>
@@ -70,13 +72,13 @@ const Signup = () => {
 
         <form onSubmit={handleSignup} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Username</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">{t('auth.username')}</label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 className="input-field pl-12"
-                placeholder="Choose a username"
+                placeholder={t('auth.chooseUsername')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -85,7 +87,7 @@ const Signup = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Password</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">{t('auth.password')}</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -100,13 +102,13 @@ const Signup = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Libyan phone number</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">{t('auth.libyanPhone')}</label>
             <div className="relative">
               <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="tel"
                 className="input-field pl-12"
-                placeholder="091 XXX XXXX"
+                placeholder={t('auth.phonePlaceholder')}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
@@ -115,14 +117,14 @@ const Signup = () => {
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-lg disabled:opacity-50">
-            {loading ? 'Creating account...' : 'Sign up'}
+            {loading ? t('auth.creatingAccount') : t('auth.signUp')}
           </button>
         </form>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          Already have an account?{' '}
+          {t('auth.alreadyHaveAccount')}{' '}
           <Link to="/login" className="text-brand-primary font-bold hover:underline">
-            Sign in
+            {t('home.signIn')}
           </Link>
         </div>
       </motion.div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
@@ -7,6 +8,7 @@ import { meResponseToUser, navigateAfterAuth } from '../utils/authRedirect';
 import { useAuth } from '../context/AuthContext';
 
 const VerifyOTP = () => {
+  const { t } = useTranslation();
   const [otp, setOtp] = useState(['', '', '', '']);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ const VerifyOTP = () => {
       const userData = await api.getMe();
       await navigateAfterAuth(navigate, meResponseToUser(userData));
     } catch {
-      setError('Invalid code. Please try again (Default: 0000)');
+      setError(t('auth.invalidCode'));
     } finally {
       setLoading(false);
     }
@@ -52,10 +54,10 @@ const VerifyOTP = () => {
           <ShieldCheck size={32} />
         </div>
 
-        <h2 className="text-2xl font-bold mb-2">Verify Phone Number</h2>
+        <h2 className="text-2xl font-bold mb-2">{t('auth.verifyTitle')}</h2>
         <p className="text-gray-500 mb-8 text-sm">
-          Enter the 4-digit code sent to your phone. <br />
-          <span className="font-semibold text-gray-700">Hint: Use 0000</span>
+          {t('auth.verifySubtitle')} <br />
+          <span className="font-semibold text-gray-700">{t('auth.verifyHint')}</span>
         </p>
 
         {error && (
@@ -97,12 +99,12 @@ const VerifyOTP = () => {
           onClick={() => setOtp(['', '', '', ''])}
           className="mt-6 text-sm text-gray-400 hover:text-brand-primary transition-colors"
         >
-          Clear code
+          {t('auth.clearCode')}
         </button>
 
         <div className="mt-8 text-center text-sm text-gray-500">
           <Link to="/login" className="text-brand-primary font-bold hover:underline">
-            Back to login
+            {t('auth.backToLogin')}
           </Link>
         </div>
       </motion.div>

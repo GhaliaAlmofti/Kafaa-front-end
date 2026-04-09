@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
@@ -7,6 +8,7 @@ import { SESSION_VERIFY_USER_ID_KEY, meResponseToUser, navigateAfterAuth } from 
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,9 +39,9 @@ const Login = () => {
       try {
         const msg = err instanceof Error ? err.message : String(err);
         const data = JSON.parse(msg);
-        setError(Object.values(data).flat().join(' ') || 'Login failed');
+        setError(Object.values(data).flat().join(' ') || t('auth.loginFailed'));
       } catch {
-        setError('Invalid credentials');
+        setError(t('auth.invalidCredentials'));
       }
     } finally {
       setLoading(false);
@@ -57,8 +59,8 @@ const Login = () => {
           <div className="w-16 h-16 bg-brand-primary rounded-2xl flex items-center justify-center text-white mx-auto mb-4">
             <LogIn size={32} />
           </div>
-          <h2 className="text-3xl font-bold">Welcome Back</h2>
-          <p className="text-gray-500 mt-2">Sign in to your Career Vision account</p>
+          <h2 className="text-3xl font-bold">{t('auth.welcomeBack')}</h2>
+          <p className="text-gray-500 mt-2">{t('auth.signInSubtitle')}</p>
         </div>
 
         {error && (
@@ -70,13 +72,13 @@ const Login = () => {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Username or Phone</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">{t('auth.usernameOrPhone')}</label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 className="input-field pl-12"
-                placeholder="Enter your username"
+                placeholder={t('auth.usernamePlaceholder')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -85,7 +87,7 @@ const Login = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700">Password</label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">{t('auth.password')}</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -100,21 +102,21 @@ const Login = () => {
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-lg disabled:opacity-50">
-            {loading ? 'Processing...' : 'Sign In'}
+            {loading ? t('auth.signInProcessing') : t('auth.signIn')}
           </button>
         </form>
 
         <div className="mt-8 text-center text-sm text-gray-500 space-y-2">
           <p>
-            Don&apos;t have an account?{' '}
+            {t('auth.dontHaveAccount')}{' '}
             <Link to="/signup" className="text-brand-primary font-bold hover:underline">
-              Create one
+              {t('auth.createOne')}
             </Link>
           </p>
           <p>
-            Hiring?{' '}
+            {t('auth.hiring')}{' '}
             <Link to="/recruiter/register" className="text-brand-primary font-bold hover:underline">
-              Register as an employer
+              {t('auth.registerEmployer')}
             </Link>
           </p>
         </div>

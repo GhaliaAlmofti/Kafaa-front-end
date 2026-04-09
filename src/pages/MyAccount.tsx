@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Pencil } from 'lucide-react';
 import { api } from '../services/api';
@@ -8,15 +9,9 @@ import UserAvatarDisplay from '../components/UserAvatarDisplay';
 import type { User, UserRole } from '../types';
 import { formatApiErrorBody } from '../utils/apiErrorMessage';
 
-function formatApiError(err: unknown): string {
-  if (!(err instanceof Error)) return 'Something went wrong';
-  return formatApiErrorBody(err.message, err.message || 'Something went wrong');
-}
-
-function roleLabel(role: UserRole | undefined): string {
-  if (role === 'ADMIN') return 'Administrator';
-  if (role === 'RECRUITER') return 'Recruiter';
-  return 'Candidate';
+function formatApiError(err: unknown, t: (k: string) => string): string {
+  if (!(err instanceof Error)) return t('myAccount.somethingWrong');
+  return formatApiErrorBody(err.message, err.message || t('myAccount.somethingWrong'));
 }
 
 function dashboardHref(role: UserRole | undefined): string {
@@ -26,7 +21,14 @@ function dashboardHref(role: UserRole | undefined): string {
 }
 
 const MyAccount = () => {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
+
+  const roleLabel = (role: UserRole | undefined): string => {
+    if (role === 'ADMIN') return t('myAccount.roleAdmin');
+    if (role === 'RECRUITER') return t('myAccount.roleRecruiter');
+    return t('myAccount.roleCandidate');
+  };
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -113,7 +115,7 @@ const MyAccount = () => {
       await refreshUser();
       setEditing(false);
     } catch (err) {
-      setError(formatApiError(err));
+      setError(formatApiError(err, t));
     } finally {
       setSaving(false);
     }
@@ -134,16 +136,16 @@ const MyAccount = () => {
           className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-brand-primary"
         >
           <ArrowLeft size={18} aria-hidden />
-          Back to dashboard
+          {t('myAccount.backToDashboard')}
         </Link>
       }
-      title="My account"
-      subtitle="View and update your sign-in details and profile."
+      title={t('myAccount.title')}
+      subtitle={t('myAccount.subtitle')}
       actions={
         !editing ? (
           <button type="button" onClick={handleStartEdit} className="btn-primary inline-flex items-center gap-2">
             <Pencil size={18} aria-hidden />
-            Edit
+            {t('myAccount.edit')}
           </button>
         ) : null
       }
@@ -158,7 +160,7 @@ const MyAccount = () => {
           {!editing ? (
             <dl className="space-y-5">
               <div>
-                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Profile photo</dt>
+                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.profilePhoto')}</dt>
                 <dd className="mt-2">
                   <UserAvatarDisplay
                     photoUrl={user.avatar_url}
@@ -169,46 +171,46 @@ const MyAccount = () => {
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Username</dt>
+                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.username')}</dt>
                 <dd className="mt-1 text-gray-900 font-medium">{user.username}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Phone</dt>
-                <dd className="mt-1 text-gray-900 font-medium">{user.phone_number || '—'}</dd>
+                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.phone')}</dt>
+                <dd className="mt-1 text-gray-900 font-medium">{user.phone_number || t('common.dash')}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Account type</dt>
+                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.accountType')}</dt>
                 <dd className="mt-1 text-gray-900 font-medium">{roleLabel(user.role)}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Verification</dt>
+                <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.verification')}</dt>
                 <dd className="mt-1 text-gray-900 font-medium">
-                  {user.is_verified ? 'Verified' : 'Pending verification'}
+                  {user.is_verified ? t('myAccount.verified') : t('myAccount.pendingVerification')}
                 </dd>
               </div>
 
               {firstProfile ? (
                 <>
                   <div className="pt-4 border-t border-gray-100">
-                    <h2 className="text-sm font-bold text-gray-900 mb-4">Profile</h2>
+                    <h2 className="text-sm font-bold text-gray-900 mb-4">{t('myAccount.profile')}</h2>
                   </div>
                   <div>
-                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Major / field</dt>
+                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.majorField')}</dt>
                     <dd className="mt-1 text-gray-900 font-medium">{firstProfile.major}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">City</dt>
+                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.city')}</dt>
                     <dd className="mt-1 text-gray-900 font-medium">{firstProfile.city}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Bio</dt>
-                    <dd className="mt-1 text-gray-900 whitespace-pre-wrap">{firstProfile.bio || '—'}</dd>
+                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('myAccount.bio')}</dt>
+                    <dd className="mt-1 text-gray-900 whitespace-pre-wrap">{firstProfile.bio || t('common.dash')}</dd>
                   </div>
                 </>
               ) : user.is_verified ? (
-                <p className="text-sm text-gray-500 pt-2">No profile yet. You can add one from your dashboard if available.</p>
+                <p className="text-sm text-gray-500 pt-2">{t('myAccount.noProfileYet')}</p>
               ) : (
-                <p className="text-sm text-gray-500 pt-2">Complete phone verification to manage your candidate profile.</p>
+                <p className="text-sm text-gray-500 pt-2">{t('myAccount.completeVerification')}</p>
               )}
             </dl>
           ) : (
@@ -240,13 +242,13 @@ const MyAccount = () => {
                         setAvatarFile(f);
                       }}
                     />
-                    <p className="text-xs text-gray-500">JPG, PNG, WebP, or GIF. Shown in the header menu after you save.</p>
+                    <p className="text-xs text-gray-500">{t('myAccount.photoHint')}</p>
                   </div>
                 </div>
               </div>
               <div>
                 <label htmlFor="account-username" className="block text-sm font-medium text-gray-700 mb-1">
-                  Username
+                  {t('myAccount.username')}
                 </label>
                 <input
                   id="account-username"
@@ -259,7 +261,7 @@ const MyAccount = () => {
               </div>
               <div>
                 <label htmlFor="account-phone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone number
+                  {t('myAccount.phoneNumber')}
                 </label>
                 <input
                   id="account-phone"
@@ -273,10 +275,10 @@ const MyAccount = () => {
 
               {firstProfile ? (
                 <>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">Profile</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">{t('myAccount.profile')}</p>
                   <div>
                     <label htmlFor="account-major" className="block text-sm font-medium text-gray-700 mb-1">
-                      Major / field
+                      {t('myAccount.majorField')}
                     </label>
                     <input
                       id="account-major"
@@ -288,7 +290,7 @@ const MyAccount = () => {
                   </div>
                   <div>
                     <label htmlFor="account-city" className="block text-sm font-medium text-gray-700 mb-1">
-                      City
+                      {t('myAccount.city')}
                     </label>
                     <input
                       id="account-city"
@@ -300,7 +302,7 @@ const MyAccount = () => {
                   </div>
                   <div>
                     <label htmlFor="account-bio" className="block text-sm font-medium text-gray-700 mb-1">
-                      Bio
+                      {t('myAccount.bio')}
                     </label>
                     <textarea
                       id="account-bio"
@@ -315,10 +317,10 @@ const MyAccount = () => {
 
               <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-100">
                 <button type="button" className="btn-secondary px-5 py-2" onClick={handleCancelEdit}>
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn-primary px-5 py-2 disabled:opacity-60" disabled={saving}>
-                  {saving ? 'Saving…' : 'Save changes'}
+                  {saving ? t('common.saving') : t('myAccount.saveChanges')}
                 </button>
               </div>
             </form>
