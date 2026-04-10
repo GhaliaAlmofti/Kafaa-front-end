@@ -8,6 +8,7 @@ function apiRoleToUserRole(role: MeResponse['role']): UserRole {
   const u = role.toUpperCase();
   if (u === 'ADMIN') return 'ADMIN';
   if (u === 'RECRUITER') return 'RECRUITER';
+  if (u === 'PENDING_RECRUITER') return 'PENDING_RECRUITER';
   return 'CANDIDATE';
 }
 
@@ -35,6 +36,10 @@ export async function navigateAfterAuth(navigate: NavigateFunction, user: User) 
     return;
   }
   if (user.role === 'RECRUITER') {
+    navigate('/recruiter');
+    return;
+  }
+  if (user.role === 'PENDING_RECRUITER') {
     navigate('/recruiter');
     return;
   }

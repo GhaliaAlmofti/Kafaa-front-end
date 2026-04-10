@@ -11,7 +11,7 @@ const RedirectToRoleAccount = () => {
   if (user.role === 'ADMIN') {
     return <Navigate to="/admin/account" replace />;
   }
-  if (user.role === 'RECRUITER') {
+  if (user.role === 'RECRUITER' || user.role === 'PENDING_RECRUITER') {
     return <Navigate to="/recruiter/account" replace />;
   }
   return <Navigate to="/dashboard/account" replace />;

@@ -23,7 +23,7 @@ import AdminOverview from './pages/admin/AdminOverview';
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage';
 import AdminJobsPage from './pages/admin/AdminJobsPage';
 import RecruiterLayout from './layouts/RecruiterLayout';
-import RecruiterIndexPage from './pages/recruiter/RecruiterIndexPage';
+import RecruiterHomeSwitch from './pages/recruiter/RecruiterHomeSwitch';
 import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
 import RecruiterCompanyPage from './pages/recruiter/RecruiterCompanyPage';
 import RecruiterRegisterPage from './pages/recruiter/RecruiterRegisterPage';
@@ -60,6 +60,9 @@ const ProtectedRoute = ({
       return <Navigate to="/admin" replace />;
     }
     if (user.role === 'RECRUITER') {
+      return <Navigate to="/recruiter" replace />;
+    }
+    if (user.role === 'PENDING_RECRUITER') {
       return <Navigate to="/recruiter" replace />;
     }
     return <Navigate to="/dashboard" replace />;
@@ -137,14 +140,21 @@ function AppShell() {
           <Route
             path="/recruiter"
             element={
-              <ProtectedRoute roles={['RECRUITER']}>
+              <ProtectedRoute roles={['RECRUITER', 'PENDING_RECRUITER']}>
                 <RecruiterLayout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<RecruiterIndexPage />} />
+            <Route index element={<RecruiterHomeSwitch />} />
             <Route path="company" element={<RecruiterCompanyPage />} />
-            <Route path="jobs/:jobId" element={<RecruiterJobDetailPage />} />
+            <Route
+              path="jobs/:jobId"
+              element={
+                <ProtectedRoute roles={['RECRUITER']}>
+                  <RecruiterJobDetailPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="account" element={<MyAccount />} />
           </Route>
 

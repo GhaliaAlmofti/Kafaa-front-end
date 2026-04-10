@@ -14,7 +14,11 @@ const Navbar = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const dashboardPath =
-    user?.role === 'ADMIN' ? '/admin' : user?.role === 'RECRUITER' ? '/recruiter' : '/dashboard';
+    user?.role === 'ADMIN'
+      ? '/admin'
+      : user?.role === 'RECRUITER' || user?.role === 'PENDING_RECRUITER'
+        ? '/recruiter'
+        : '/dashboard';
 
   const handleLogout = async () => {
     setIsOpen(false);

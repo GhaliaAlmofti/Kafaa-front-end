@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import type { Job } from '../types';
 import SidebarBrand from '../components/SidebarBrand';
 import SidebarUserMenu from '../components/SidebarUserMenu';
+import { useAuth } from '../context/AuthContext';
 
 export type RecruiterLayoutContext = {
   jobs: Job[];
@@ -24,11 +25,18 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 const RecruiterLayout = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const refetch = useCallback(async () => {
+    if (user?.role === 'PENDING_RECRUITER') {
+      setJobs([]);
+      setError('');
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError('');
@@ -39,7 +47,7 @@ const RecruiterLayout = () => {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, user?.role]);
 
   useEffect(() => {
     void refetch();

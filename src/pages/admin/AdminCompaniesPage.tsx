@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Building2, Shield, AlertCircle, ExternalLink, Upload } from 'lucide-react';
+import { Building2, Shield, AlertCircle, ExternalLink, Upload, CheckCircle } from 'lucide-react';
 import type { Company } from '../../types';
 import { api } from '../../services/api';
 import PageLayout from '../../components/PageLayout';
@@ -23,6 +23,7 @@ const AdminCompaniesPage = () => {
     phone_number: '',
   });
   const [blockingCompanyId, setBlockingCompanyId] = useState<number | null>(null);
+  const [approvingCompanyId, setApprovingCompanyId] = useState<number | null>(null);
   const [newCompanyLogo, setNewCompanyLogo] = useState<File | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -82,6 +83,19 @@ const AdminCompaniesPage = () => {
       setError('Failed to update company.');
     } finally {
       setBlockingCompanyId(null);
+    }
+  };
+
+  const toggleCompanyApproval = async (company: Company) => {
+    try {
+      setApprovingCompanyId(company.id);
+      const nextApproved = !company.is_approved;
+      const updated = await api.patchCompany(company.id, { is_approved: nextApproved });
+      setCompanies((prev) => prev.map((c) => (c.id === company.id ? updated : c)));
+    } catch {
+      setError('Failed to update approval status.');
+    } finally {
+      setApprovingCompanyId(null);
     }
   };
 
@@ -188,29 +202,52 @@ const AdminCompaniesPage = () => {
                     </div>
                   </div>
                 </div>
-                <span
-                  className={`shrink-0 text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                    company.is_blocked
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-brand-primary-soft text-brand-primary-deep'
-                  }`}
-                >
-                  {company.is_blocked ? 'Blocked' : 'Active'}
-                </span>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span
+                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      company.is_blocked
+                        ? 'bg-red-100 text-red-700'
+                        : company.is_approved
+                          ? 'bg-brand-primary-soft text-brand-primary-deep'
+                          : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {company.is_blocked
+                      ? 'Blocked'
+                      : company.is_approved
+                        ? 'Approved'
+                        : 'Pending approval'}
+                  </span>
+                </div>
               </div>
-              <button
-                type="button"
-                disabled={blockingCompanyId === company.id}
-                onClick={() => void toggleCompanyBlock(company)}
-                className="mt-3 w-full text-xs font-bold py-2 rounded-xl border border-gray-200 hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Shield size={14} />
-                {blockingCompanyId === company.id
-                  ? 'Updating…'
-                  : company.is_blocked
-                    ? 'Unblock company'
-                    : 'Block company'}
-              </button>
+              <div className="mt-3 flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={approvingCompanyId === company.id || company.is_blocked}
+                  onClick={() => void toggleCompanyApproval(company)}
+                  className="w-full text-xs font-bold py-2 rounded-xl border border-gray-200 hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle size={14} />
+                  {approvingCompanyId === company.id
+                    ? 'Updating…'
+                    : company.is_approved
+                      ? 'Revoke recruiter approval'
+                      : 'Approve recruiter'}
+                </button>
+                <button
+                  type="button"
+                  disabled={blockingCompanyId === company.id}
+                  onClick={() => void toggleCompanyBlock(company)}
+                  className="w-full text-xs font-bold py-2 rounded-xl border border-gray-200 hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Shield size={14} />
+                  {blockingCompanyId === company.id
+                    ? 'Updating…'
+                    : company.is_blocked
+                      ? 'Unblock company'
+                      : 'Block company'}
+                </button>
+              </div>
             </div>
           ))}
           {companies.length === 0 && (

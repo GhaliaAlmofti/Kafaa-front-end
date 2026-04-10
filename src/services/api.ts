@@ -32,7 +32,7 @@ export type MeResponse = {
   username: string;
   phone_number: string;
   is_verified: boolean;
-  role: 'admin' | 'recruiter' | 'candidate';
+  role: 'admin' | 'recruiter' | 'pending_recruiter' | 'candidate';
   avatar?: string | null;
   profiles: Profile[];
 };
@@ -43,6 +43,7 @@ type BackendCompany = {
   about: string;
   company_field: string;
   is_blocked?: boolean;
+  is_approved?: boolean;
   logo?: string | null;
   secondary_logo?: string | null;
   google_maps_url?: string;
@@ -59,6 +60,7 @@ function mapCompany(company: BackendCompany): Company {
     description: company.about,
     company_field: company.company_field,
     is_blocked: Boolean(company.is_blocked),
+    is_approved: Boolean(company.is_approved),
     logo_url: company.logo ?? null,
     secondary_logo_url: company.secondary_logo ?? null,
     google_maps_url: company.google_maps_url || undefined,
@@ -322,7 +324,10 @@ export const api = {
     return mapCompany(c);
   },
 
-  patchCompany: async (id: number, body: { is_blocked: boolean }): Promise<Company> => {
+  patchCompany: async (
+    id: number,
+    body: { is_blocked?: boolean; is_approved?: boolean },
+  ): Promise<Company> => {
     const c = (await request(`/companies/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(body),

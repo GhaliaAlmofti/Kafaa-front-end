@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'RECRUITER' | 'CANDIDATE';
+export type UserRole = 'ADMIN' | 'RECRUITER' | 'PENDING_RECRUITER' | 'CANDIDATE';
 
 export interface User {
   id: number;
@@ -25,12 +25,31 @@ export interface Company {
   company_field?: string;
   /** Absolute URL from API (`logo` on backend). */
   logo_url?: string | null;
+  /** Optional alternate mark (`secondary_logo` on backend). */
+  secondary_logo_url?: string | null;
+  /** Place link or embed URL for Google Maps. */
+  google_maps_url?: string;
   website?: string;
   linkedin_url?: string;
   twitter_url?: string;
   facebook_url?: string;
   is_blocked?: boolean;
+  /** False until an admin approves the recruiter organization. */
+  is_approved?: boolean;
 }
+
+/** Backend `seniority` (empty string when not set). */
+export type JobSeniority =
+  | ''
+  | 'intern'
+  | 'junior'
+  | 'mid'
+  | 'senior'
+  | 'lead'
+  | 'executive';
+
+/** Backend `work_mode` (empty when not set). */
+export type JobWorkMode = '' | 'remote' | 'hybrid' | 'on_site';
 
 export interface Job {
   id: number;
@@ -39,6 +58,12 @@ export interface Job {
   description: string;
   location: string;
   job_type: 'full-time' | 'part-time' | 'internship' | 'freelance';
+  /** Monthly salary lower bound when set (recruiter-provided). */
+  salary_min?: number | null;
+  /** Monthly salary upper bound when set. */
+  salary_max?: number | null;
+  seniority?: JobSeniority | string | null;
+  work_mode?: JobWorkMode | string | null;
   created_at: string;
   is_active?: boolean;
   company_name?: string | null;
@@ -75,6 +100,10 @@ export interface JobApplication {
   status: 'pending' | 'reviewed' | 'accepted' | 'rejected';
   match_score: number | null;
   match_reason: string | null;
+  /** Explainability: CV-aligned skills from ranking. */
+  match_matched_skills?: string[] | null;
+  /** Explainability: gaps vs job requirements. */
+  match_missing_skills?: string[] | null;
   applied_at: string;
 }
 
@@ -89,6 +118,8 @@ export interface MyApplication {
   status: JobApplication['status'];
   match_score: number | null;
   match_reason: string | null;
+  match_matched_skills?: string[] | null;
+  match_missing_skills?: string[] | null;
   applied_at: string;
   cv: number;
   cv_is_parsed?: boolean;

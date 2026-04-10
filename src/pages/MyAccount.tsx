@@ -16,7 +16,7 @@ function formatApiError(err: unknown, t: (k: string) => string): string {
 
 function dashboardHref(role: UserRole | undefined): string {
   if (role === 'ADMIN') return '/admin';
-  if (role === 'RECRUITER') return '/recruiter';
+  if (role === 'RECRUITER' || role === 'PENDING_RECRUITER') return '/recruiter';
   return '/dashboard';
 }
 
@@ -27,6 +27,7 @@ const MyAccount = () => {
   const roleLabel = (role: UserRole | undefined): string => {
     if (role === 'ADMIN') return t('myAccount.roleAdmin');
     if (role === 'RECRUITER') return t('myAccount.roleRecruiter');
+    if (role === 'PENDING_RECRUITER') return t('myAccount.rolePendingRecruiter');
     return t('myAccount.roleCandidate');
   };
   const [editing, setEditing] = useState(false);

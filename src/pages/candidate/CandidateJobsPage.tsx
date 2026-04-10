@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -28,6 +29,7 @@ import { JobSearchFilters } from '../../components/candidate/JobSearchFilters';
 import type { CV, Job, MyApplication } from '../../types';
 
 const CandidateJobsPage = () => {
+  const { t } = useTranslation();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [myApps, setMyApps] = useState<MyApplication[]>([]);
   const [cvs, setCvs] = useState<Pick<CV, 'id' | 'is_parsed' | 'display_name'>[]>([]);
@@ -151,7 +153,7 @@ const CandidateJobsPage = () => {
       setApplyModalJob(null);
       setModalCvId(null);
     } catch (e) {
-      const raw = e instanceof Error ? e.message : 'Apply failed';
+      const raw = e instanceof Error ? e.message : t('candidateJobs.applyFailed');
       setModalError(raw);
     } finally {
       setApplySubmitting(false);
@@ -163,7 +165,7 @@ const CandidateJobsPage = () => {
       <PageLayout.Shell maxWidth="wide">
         <div className="flex justify-center min-h-[40vh] items-center text-gray-500 gap-2">
           <Loader2 className="animate-spin" size={22} aria-hidden />
-          Loading jobs…
+          {t('candidateJobs.loading')}
         </div>
       </PageLayout.Shell>
     );
@@ -198,7 +200,7 @@ const CandidateJobsPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="search"
-              placeholder="Search title, location, description…"
+              placeholder={t('candidateJobs.searchPlaceholder')}
               className="input-field pl-10 w-full"
               value={jobSearch}
               onChange={(e) => setJobSearch(e.target.value)}
@@ -247,7 +249,7 @@ const CandidateJobsPage = () => {
                 </div>
                 {applied && (
                   <span className="shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-full bg-brand-primary-soft text-brand-primary-deep">
-                    Applied
+                    {t('candidateJobs.applied')}
                   </span>
                 )}
               </div>
@@ -258,15 +260,15 @@ const CandidateJobsPage = () => {
                 </span>
                 <span className="flex items-center gap-1">
                   <Briefcase size={14} />
-                  {job.job_type}
+                  {t(`jobTypesApi.${job.job_type}`, { defaultValue: job.job_type })}
                 </span>
                 {job.work_mode ? (
                   <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-brand-primary-soft text-brand-primary-deep">
                     {job.work_mode === 'on_site'
-                      ? 'On-site'
+                      ? t('workMode.on_site')
                       : job.work_mode === 'remote'
-                        ? 'Remote'
-                        : 'Hybrid'}
+                        ? t('workMode.remote')
+                        : t('workMode.hybrid')}
                   </span>
                 ) : null}
                 {job.seniority ? (
@@ -278,10 +280,13 @@ const CandidateJobsPage = () => {
                   <span className="flex items-center gap-1 text-gray-700 font-semibold tabular-nums">
                     <Banknote size={14} className="text-brand-primary" aria-hidden />
                     {job.salary_min != null && job.salary_max != null
-                      ? `${job.salary_min.toLocaleString()}–${job.salary_max.toLocaleString()} LYD/mo`
+                      ? t('candidateJobs.salaryRange', {
+                          min: job.salary_min.toLocaleString(),
+                          max: job.salary_max.toLocaleString(),
+                        })
                       : job.salary_min != null
-                        ? `From ${job.salary_min.toLocaleString()} LYD/mo`
-                        : `Up to ${job.salary_max!.toLocaleString()} LYD/mo`}
+                        ? t('candidateJobs.salaryFrom', { v: job.salary_min.toLocaleString() })
+                        : t('candidateJobs.salaryUpTo', { v: job.salary_max!.toLocaleString() })}
                   </span>
                 ) : null}
                 {job.created_at && (
@@ -317,12 +322,12 @@ const CandidateJobsPage = () => {
                     onClick={() => openEasyApplyModal(job)}
                   >
                     <Zap size={18} aria-hidden />
-                    Easy apply
+                    {t('candidateJobs.easyApply')}
                   </button>
                 ) : (
                   <p className="text-sm text-gray-500 flex items-center gap-2">
                     <CheckCircle size={16} className="text-brand-primary-bright" />
-                    You have already applied.
+                    {t('candidateJobs.alreadyApplied')}
                   </p>
                 )}
               </div>
@@ -332,9 +337,9 @@ const CandidateJobsPage = () => {
         </div>
         {filteredJobs.length === 0 ? (
           <p className="text-gray-400 text-center py-12 border border-dashed border-gray-200 rounded-2xl text-sm">
-            No jobs match your filters.{' '}
+            {t('candidateJobs.noMatch')}{' '}
             <button type="button" className="text-brand-primary font-semibold" onClick={clearAllFilters}>
-              Clear filters
+              {t('common.clearFilters')}
             </button>
           </p>
         ) : null}
@@ -363,7 +368,7 @@ const CandidateJobsPage = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <h2 id="easy-apply-title" className="text-lg font-bold text-brand-black">
-                  Easy apply
+                  {t('candidateJobs.easyApplyTitle')}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600 line-clamp-2">{applyModalJob.title}</p>
                 {applyModalJob.company_name && (
@@ -375,14 +380,14 @@ const CandidateJobsPage = () => {
             {cvs.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center text-sm text-gray-600">
                 <FileText className="mx-auto mb-2 text-gray-400" size={28} aria-hidden />
-                <p className="font-medium text-brand-black">No CV on file</p>
-                <p className="mt-1 text-gray-500">Upload a CV on My CV before you can apply.</p>
+                <p className="font-medium text-brand-black">{t('candidateJobs.noCvTitle')}</p>
+                <p className="mt-1 text-gray-500">{t('candidateJobs.noCvBody')}</p>
                 <Link
                   to="/dashboard/cv"
                   className="mt-4 inline-block btn-primary text-sm py-2.5 px-5"
                   onClick={closeApplyModal}
                 >
-                  Go to My CV
+                  {t('candidateJobs.goToMyCv')}
                 </Link>
               </div>
             ) : (
@@ -418,14 +423,14 @@ const CandidateJobsPage = () => {
                           </span>
                           <div className="min-w-0 flex-1">
                             <span className="font-bold text-brand-black truncate block">
-                              {cv.display_name?.trim() || 'CV'}
+                              {cv.display_name?.trim() || t('candidateJobs.cvDefaultName')}
                             </span>
                             <span
                               className={`ml-2 text-xs font-semibold ${
                                 cv.is_parsed ? 'text-brand-primary' : 'text-amber-600'
                               }`}
                             >
-                              {cv.is_parsed ? 'Analyzed' : 'Not analyzed'}
+                              {cv.is_parsed ? t('candidateJobs.analyzed') : t('candidateJobs.notAnalyzed')}
                             </span>
                           </div>
                         </button>
@@ -434,7 +439,7 @@ const CandidateJobsPage = () => {
                   })}
                 </ul>
                 <p className="mt-3 text-xs text-gray-500">
-                  Analyzed CVs usually get better match scores after you apply.
+                  {t('candidateJobs.analyzedHint')}
                 </p>
               </>
             )}
@@ -454,7 +459,7 @@ const CandidateJobsPage = () => {
                   onClick={closeApplyModal}
                   className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -467,7 +472,7 @@ const CandidateJobsPage = () => {
                   ) : (
                     <Zap size={18} aria-hidden />
                   )}
-                  Apply
+                  {t('candidateJobs.apply')}
                 </button>
               </div>
             ) : (
@@ -476,7 +481,7 @@ const CandidateJobsPage = () => {
                 onClick={closeApplyModal}
                 className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
               >
-                Close
+                {t('common.close')}
               </button>
             )}
           </motion.div>
