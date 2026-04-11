@@ -44,6 +44,8 @@ const RecruiterIndexPage = () => {
         salary_max: source.salary_max ?? undefined,
         seniority: source.seniority ?? undefined,
         work_mode: source.work_mode ?? undefined,
+        knockout_criteria: source.knockout_criteria ?? undefined,
+        knockout_questions: source.knockout_questions ?? undefined,
       });
       await refetch();
     },

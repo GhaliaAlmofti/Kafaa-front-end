@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Send, FileText, Search } from 'lucide-react';
+import { LayoutDashboard, Send, FileText, Search, Mail } from 'lucide-react';
 import { api } from '../services/api';
 import SidebarBrand from '../components/SidebarBrand';
 import SidebarUserMenu from '../components/SidebarUserMenu';
@@ -32,6 +32,7 @@ const CandidateLayout = () => {
       { to: '/dashboard/applications', label: t('layouts.candidateNavApplications'), icon: <Send size={18} /> },
       { to: '/dashboard/cv', label: t('layouts.candidateNavCv'), icon: <FileText size={18} /> },
       { to: '/dashboard/jobs', label: t('layouts.candidateNavJobs'), icon: <Search size={18} /> },
+      { to: '/dashboard/messages', label: t('layouts.candidateNavMessages'), icon: <Mail size={18} /> },
     ],
     [t],
   );

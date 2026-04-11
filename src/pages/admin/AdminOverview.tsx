@@ -1,24 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { Building2, Briefcase, ArrowRight } from 'lucide-react';
+import { Building2, Briefcase, ArrowRight, ClipboardCheck } from 'lucide-react';
 import { api } from '../../services/api';
 import PageLayout from '../../components/PageLayout';
 import type { Company, AdminJobRow } from '../../types';
 
 const AdminOverview = () => {
+  const { t } = useTranslation();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [adminJobs, setAdminJobs] = useState<AdminJobRow[]>([]);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [companiesData, jobsData] = await Promise.all([
+      const [companiesData, jobsData, pendingData] = await Promise.all([
         api.listCompanies(),
         api.listAdminJobs(),
+        api.listPendingCompanies().catch(() => []),
       ]);
       setCompanies(companiesData);
       setAdminJobs(jobsData);
+      setPendingApprovalsCount(pendingData.length);
     } catch {
       /* keep empty */
     } finally {
@@ -71,7 +76,30 @@ const AdminOverview = () => {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <NavLink
+          to="/admin/approvals"
+          className="group rounded-3xl bg-white border border-gray-100 p-6 hover:border-brand-primary transition-colors flex items-start justify-between gap-4 md:col-span-2 xl:col-span-1"
+        >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-brand-primary mb-2">
+              <ClipboardCheck size={22} />
+              <span className="font-black text-brand-black text-lg">Company approvals</span>
+              {pendingApprovalsCount > 0 ? (
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                  {pendingApprovalsCount} pending
+                </span>
+              ) : null}
+            </div>
+            <p className="text-sm text-gray-500">
+              Approve or reject recruiter organizations that are waiting for access.
+            </p>
+          </div>
+          <ArrowRight
+            className="shrink-0 text-gray-300 group-hover:text-brand-primary transition-colors"
+            size={22}
+          />
+        </NavLink>
         <NavLink
           to="/admin/companies"
           className="group rounded-3xl bg-white border border-gray-100 p-6 hover:border-brand-primary transition-colors flex items-start justify-between gap-4"
@@ -97,11 +125,9 @@ const AdminOverview = () => {
           <div>
             <div className="flex items-center gap-2 text-brand-primary mb-2">
               <Briefcase size={22} />
-              <span className="font-black text-brand-black text-lg">Jobs</span>
+              <span className="font-black text-brand-black text-lg">{t('adminSuperView.pageTitle')}</span>
             </div>
-            <p className="text-sm text-gray-500">
-              Post roles for a company, review listings, and drill into applications.
-            </p>
+            <p className="text-sm text-gray-500">{t('adminSuperView.pageSubtitle')}</p>
           </div>
           <ArrowRight
             className="shrink-0 text-gray-300 group-hover:text-brand-primary transition-colors"

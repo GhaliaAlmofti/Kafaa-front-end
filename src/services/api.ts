@@ -4,11 +4,31 @@ import {
   GrowthReport,
   CV,
   AdminJobRow,
+  AdminGlobalApplicationRow,
   JobApplication,
+  JobRecruiterAnalytics,
   MyApplication,
   Profile,
+  PortfolioItem,
+  PendingCompanyRow,
+  PendingCompanyOwner,
+  InAppNotification,
+  InterviewInvitation,
+  UserAccountStatus,
 } from '../types';
 import { formatApiErrorBody } from '../utils/apiErrorMessage';
+
+/** GET /jobs/ optional filters (aligned with `jobs.query.filter_public_jobs`). */
+export type JobListQueryParams = {
+  search?: string;
+  q?: string;
+  job_type?: string;
+  location?: string;
+  seniority?: string;
+  work_mode?: string;
+  salary_min?: string;
+  salary_max?: string;
+};
 
 export type LoginCredentials = {
   username: string;
@@ -32,10 +52,22 @@ export type MeResponse = {
   username: string;
   phone_number: string;
   is_verified: boolean;
-  role: 'admin' | 'recruiter' | 'pending_recruiter' | 'candidate';
+  role: 'admin' | 'recruiter' | 'pending_recruiter' | 'rejected_recruiter' | 'candidate';
+  /** Explicit lifecycle state; e.g. PENDING_RECRUITER until an admin approves the company (then ACTIVE). */
+  user_status: UserAccountStatus;
   avatar?: string | null;
   profiles: Profile[];
+  portfolio_items?: PortfolioItem[];
 };
+
+export type CompanyApprovalWorkflow = {
+  owner_user_id: number;
+  previous_user_status: string;
+  current_user_status: string;
+  owner_role: string;
+};
+
+export type CompanyWithApproval = Company & { approval?: CompanyApprovalWorkflow };
 
 type BackendCompany = {
   id: number;
@@ -44,6 +76,8 @@ type BackendCompany = {
   company_field: string;
   is_blocked?: boolean;
   is_approved?: boolean;
+  approved_at?: string | null;
+  rejection_reason?: string;
   logo?: string | null;
   secondary_logo?: string | null;
   google_maps_url?: string;
@@ -53,6 +87,8 @@ type BackendCompany = {
   facebook_url?: string;
 };
 
+type BackendPendingCompany = BackendCompany & { owner: PendingCompanyOwner };
+
 function mapCompany(company: BackendCompany): Company {
   return {
     id: company.id,
@@ -61,6 +97,8 @@ function mapCompany(company: BackendCompany): Company {
     company_field: company.company_field,
     is_blocked: Boolean(company.is_blocked),
     is_approved: Boolean(company.is_approved),
+    approved_at: company.approved_at ?? null,
+    rejection_reason: company.rejection_reason || undefined,
     logo_url: company.logo ?? null,
     secondary_logo_url: company.secondary_logo ?? null,
     google_maps_url: company.google_maps_url || undefined,
@@ -69,6 +107,10 @@ function mapCompany(company: BackendCompany): Company {
     twitter_url: company.twitter_url || undefined,
     facebook_url: company.facebook_url || undefined,
   };
+}
+
+function mapPendingCompany(company: BackendPendingCompany): PendingCompanyRow {
+  return { ...mapCompany(company), owner: company.owner };
 }
 
 const rawBase =
@@ -113,6 +155,25 @@ async function fetchCsrfToken(): Promise<void> {
 
 export function clearCsrfTokenCache() {
   csrfTokenCache = null;
+}
+
+const VISITOR_KEY = 'kafaa_visitor_id';
+
+/** Stable id for anonymous analytics (job impressions). */
+export function getOrCreateAnonymousVisitorId(): string {
+  try {
+    let v = localStorage.getItem(VISITOR_KEY);
+    if (!v) {
+      v =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(VISITOR_KEY, v);
+    }
+    return v;
+  } catch {
+    return `anon-${Date.now()}`;
+  }
 }
 
 /** Clears legacy JWT keys if present (session auth is used instead). */
@@ -267,7 +328,19 @@ export const api = {
     return res.blob();
   },
 
-  listJobs: (): Promise<Job[]> => request('/jobs/') as Promise<Job[]>,
+  /** Query params mirror GET /api/v1/jobs/ server filters (search, job_type, location, etc.). */
+  listJobs: (params?: JobListQueryParams): Promise<Job[]> => {
+    const qs = new URLSearchParams();
+    if (params) {
+      (Object.entries(params) as [keyof JobListQueryParams, string | undefined][]).forEach(
+        ([k, v]) => {
+          if (v !== undefined && String(v).trim() !== '') qs.set(k, String(v).trim());
+        },
+      );
+    }
+    const q = qs.toString();
+    return request(q ? `/jobs/?${q}` : '/jobs/') as Promise<Job[]>;
+  },
 
   listMyApplications: (): Promise<MyApplication[]> =>
     request('/jobs/my-applications/') as Promise<MyApplication[]>,
@@ -326,11 +399,36 @@ export const api = {
 
   patchCompany: async (
     id: number,
-    body: { is_blocked?: boolean; is_approved?: boolean },
+    body: { is_blocked?: boolean; is_approved?: boolean; rejection_reason?: string },
   ): Promise<Company> => {
     const c = (await request(`/companies/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(body),
+    })) as BackendCompany;
+    return mapCompany(c);
+  },
+
+  listPendingCompanies: async (includeUnverified?: boolean): Promise<PendingCompanyRow[]> => {
+    const path =
+      includeUnverified === true
+        ? '/companies/pending/?include_unverified=1'
+        : '/companies/pending/';
+    const data = (await request(path)) as BackendPendingCompany[];
+    return data.map(mapPendingCompany);
+  },
+
+  approveCompany: async (id: number): Promise<CompanyWithApproval> => {
+    const raw = (await request(`/companies/${id}/approve/`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })) as BackendCompany & { approval?: CompanyApprovalWorkflow };
+    return { ...mapCompany(raw), approval: raw.approval };
+  },
+
+  rejectCompany: async (id: number, reason?: string): Promise<Company> => {
+    const c = (await request(`/companies/${id}/reject/`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason?.trim() ?? '' }),
     })) as BackendCompany;
     return mapCompany(c);
   },
@@ -359,6 +457,10 @@ export const api = {
   listAdminJobs: (): Promise<AdminJobRow[]> =>
     request('/jobs/admin-list/') as Promise<AdminJobRow[]>,
 
+  /** All applications across companies (admin super-view). */
+  listAdminApplications: (): Promise<AdminGlobalApplicationRow[]> =>
+    request('/jobs/admin-applications/') as Promise<AdminGlobalApplicationRow[]>,
+
   listJobApplications: (jobId: number): Promise<JobApplication[]> =>
     request(`/jobs/${jobId}/applications/`) as Promise<JobApplication[]>,
 
@@ -381,6 +483,8 @@ export const api = {
         | 'salary_max'
         | 'seniority'
         | 'work_mode'
+        | 'knockout_criteria'
+        | 'knockout_questions'
       >
     >,
   ) =>
@@ -399,9 +503,83 @@ export const api = {
     });
   },
 
-  applyJob: (data: { job: number; cv: number }) =>
-    request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
+  applyJob: (data: {
+    job: number;
+    cv: number;
+    /** Required when the job has `knockout_questions`: map question id → yes | no */
+    knockout_answers?: Record<string, 'yes' | 'no'>;
+  }) => request('/jobs/apply/', { method: 'POST', body: JSON.stringify(data) }),
+
+  /** Candidate job view (funnel). Authenticated users omit `visitorIdIfAnonymous`. */
+  recordJobImpression: (jobId: number, visitorIdIfAnonymous?: string) =>
+    request(`/jobs/${jobId}/impression/`, {
+      method: 'POST',
+      body:
+        visitorIdIfAnonymous != null
+          ? JSON.stringify({ visitor_id: visitorIdIfAnonymous })
+          : JSON.stringify({}),
+    }) as Promise<{ ok: boolean }>,
+
+  getJobRecruiterAnalytics: (jobId: number) =>
+    request(`/jobs/${jobId}/analytics/`) as Promise<JobRecruiterAnalytics>,
 
   getGrowthReport: (applicationId: number): Promise<GrowthReport> =>
     request(`/jobs/applications/${applicationId}/growth-report/`) as Promise<GrowthReport>,
+
+  /** Inbox or sent folder (`box` query). */
+  listNotifications: (box?: 'inbox' | 'sent'): Promise<InAppNotification[]> => {
+    const q = box === 'sent' ? '?box=sent' : '';
+    return request(`/notifications/${q}`) as Promise<InAppNotification[]>;
+  },
+
+  getUnreadNotificationCount: (): Promise<{ unread_count: number }> =>
+    request('/notifications/unread-count/') as Promise<{ unread_count: number }>,
+
+  markNotificationRead: (id: number, read = true): Promise<InAppNotification> =>
+    request(`/notifications/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ read }),
+    }) as Promise<InAppNotification>,
+
+  sendApplicationMessage: (body: {
+    job_application_id: number;
+    title: string;
+    body: string;
+  }): Promise<InAppNotification> =>
+    request('/notifications/messages/', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }) as Promise<InAppNotification>,
+
+  createInterviewInvitation: (body: {
+    job_application_id: number;
+    proposed_start: string;
+    proposed_end?: string | null;
+    duration_minutes?: number | null;
+    timezone?: string;
+    location?: string;
+    meeting_url?: string;
+    title?: string;
+    body?: string;
+  }): Promise<InAppNotification & { interview_invitation: InterviewInvitation }> =>
+    request('/interview-invitations/', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }) as Promise<InAppNotification & { interview_invitation: InterviewInvitation }>,
+
+  getInterviewInvitation: (
+    id: number,
+  ): Promise<InterviewInvitation & { notification: InAppNotification }> =>
+    request(`/interview-invitations/${id}/`) as Promise<
+      InterviewInvitation & { notification: InAppNotification }
+    >,
+
+  respondToInterviewInvitation: (
+    id: number,
+    body: { status: 'accepted' | 'declined'; response_note?: string },
+  ): Promise<InterviewInvitation> =>
+    request(`/interview-invitations/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }) as Promise<InterviewInvitation>,
 };

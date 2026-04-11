@@ -3,21 +3,21 @@
  *
  * Change the primary brand by editing --color-brand-primary and, if needed,
  * the related scale below. Components should use brand-primary-* utilities,
- * not raw blue-* or hex values.
+ * not raw color-* or hex values.
  */
 
 @theme {
-  /* Core */
-  --color-brand-primary: #2563eb;
-  --color-brand-primary-hover: #1d4ed8;
-  --color-brand-primary-bright: #3b82f6;
-  --color-brand-primary-mid: #1d4ed8;
-  --color-brand-primary-deep: #1e40af;
-  --color-brand-primary-void: #1e3a8a;
+  /* Core (red scale, aligned with Tailwind red-500–900) */
+  --color-brand-primary: #dc2626;
+  --color-brand-primary-hover: #b91c1c;
+  --color-brand-primary-bright: #ef4444;
+  --color-brand-primary-mid: #b91c1c;
+  --color-brand-primary-deep: #991b1b;
+  --color-brand-primary-void: #7f1d1d;
 
   /* Surfaces & borders tied to primary */
-  --color-brand-primary-soft: #dbeafe;
-  --color-brand-primary-faint: #eff6ff;
+  --color-brand-primary-soft: #fee2e2;
+  --color-brand-primary-faint: #fef2f2;
   --color-brand-primary-fg-on-primary: #ffffff;
 
   /* Neutrals (brand wordmark, etc.) */

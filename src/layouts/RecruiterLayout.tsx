@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Building2, LayoutDashboard } from 'lucide-react';
+import { BarChart3, Building2, LayoutDashboard, Mail } from 'lucide-react';
 import { api } from '../services/api';
 import type { Job } from '../types';
 import SidebarBrand from '../components/SidebarBrand';
@@ -31,7 +31,7 @@ const RecruiterLayout = () => {
   const [error, setError] = useState('');
 
   const refetch = useCallback(async () => {
-    if (user?.role === 'PENDING_RECRUITER') {
+    if (user?.role === 'PENDING_RECRUITER' || user?.role === 'REJECTED_RECRUITER') {
       setJobs([]);
       setError('');
       setLoading(false);
@@ -65,9 +65,17 @@ const RecruiterLayout = () => {
             <LayoutDashboard size={18} />
             {t('layouts.recruiterNavDashboard')}
           </NavLink>
+          <NavLink to="/recruiter/analytics" className={linkClass}>
+            <BarChart3 size={18} />
+            {t('layouts.recruiterNavAnalytics')}
+          </NavLink>
           <NavLink to="/recruiter/company" className={linkClass}>
             <Building2 size={18} />
             {t('layouts.recruiterNavCompany')}
+          </NavLink>
+          <NavLink to="/recruiter/messages" className={linkClass}>
+            <Mail size={18} />
+            {t('layouts.recruiterNavMessages')}
           </NavLink>
         </nav>
         <SidebarUserMenu />

@@ -16,7 +16,13 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { formatPostedDate } from '../../utils/formatPostedDate';
-import type { Company, AdminJobRow, JobApplication, GrowthReport } from '../../types';
+import type {
+  Company,
+  AdminJobRow,
+  AdminGlobalApplicationRow,
+  JobApplication,
+  GrowthReport,
+} from '../../types';
 import { api } from '../../services/api';
 import PageLayout from '../../components/PageLayout';
 import { GrowthReportModal } from '../../components/GrowthReportModal';
@@ -48,6 +54,7 @@ const AdminJobsPage = () => {
   const { t } = useTranslation();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [adminJobs, setAdminJobs] = useState<AdminJobRow[]>([]);
+  const [adminGlobalApps, setAdminGlobalApps] = useState<AdminGlobalApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -81,12 +88,14 @@ const AdminJobsPage = () => {
     try {
       setLoading(true);
       setError('');
-      const [companiesData, jobsData] = await Promise.all([
+      const [companiesData, jobsData, appsData] = await Promise.all([
         api.listCompanies(),
         api.listAdminJobs(),
+        api.listAdminApplications().catch(() => [] as AdminGlobalApplicationRow[]),
       ]);
       setCompanies(companiesData);
       setAdminJobs(jobsData);
+      setAdminGlobalApps(appsData);
       setSelectedCompanyId((prev) => prev ?? companiesData[0]?.id ?? null);
     } catch {
       setError('Failed to fetch data');
@@ -183,8 +192,8 @@ const AdminJobsPage = () => {
   return (
     <PageLayout
       maxWidth="wide"
-      title="Jobs"
-      subtitle="Listings and applications"
+      title={t('adminSuperView.pageTitle')}
+      subtitle={t('adminSuperView.pageSubtitle')}
       actions={
         <button type="button" onClick={() => setShowJobForm(true)} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> Post job
@@ -197,6 +206,52 @@ const AdminJobsPage = () => {
           {error}
         </div>
       )}
+
+      <div className="bg-white rounded-3xl p-6 border border-gray-100 mb-8">
+        <h2 className="text-lg font-black text-brand-black mb-1">{t('adminSuperView.globalIndexTitle')}</h2>
+        <p className="text-sm text-gray-500 mb-4">{t('adminSuperView.globalIndexHint')}</p>
+        {adminGlobalApps.length === 0 ? (
+          <p className="text-center text-gray-400 py-8 text-sm">No applications yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-gray-100">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-[10px] font-black uppercase tracking-wider text-gray-500">
+                  <th className="px-4 py-3">Applicant</th>
+                  <th className="px-4 py-3">Job</th>
+                  <th className="px-4 py-3">Company</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Applied</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adminGlobalApps.map((row) => (
+                  <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50/80">
+                    <td className="px-4 py-3 font-bold text-brand-black">
+                      {row.applicant_name || `User #${row.applicant}`}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{row.job_title}</td>
+                    <td className="px-4 py-3 text-gray-600">{row.company_name ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusBadgeClass(row.status)}`}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+                      {new Date(row.applied_at).toLocaleString(undefined, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="bg-white rounded-3xl p-6 border border-gray-100">
         <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -343,6 +398,7 @@ const AdminJobsPage = () => {
                                     </span>
                                     <MatchScoreExplainability
                                       score={app.match_score}
+                                      reason={app.match_reason}
                                       matched={app.match_matched_skills}
                                       missing={app.match_missing_skills}
                                       variant="pill"

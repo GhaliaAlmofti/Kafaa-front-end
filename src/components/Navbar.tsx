@@ -5,18 +5,22 @@ import { LogOut, User, Menu, X, ChevronDown, ChevronUp, LayoutDashboard } from '
 import { useAuth } from '../context/AuthContext';
 import UserAvatarDisplay from './UserAvatarDisplay';
 import { LanguageToggle } from './LanguageToggle';
+import { SignUpRoleModal } from './SignUpRoleModal';
 
 const Navbar = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [signUpModalOpen, setSignUpModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const dashboardPath =
     user?.role === 'ADMIN'
       ? '/admin'
-      : user?.role === 'RECRUITER' || user?.role === 'PENDING_RECRUITER'
+      : user?.role === 'RECRUITER' ||
+          user?.role === 'PENDING_RECRUITER' ||
+          user?.role === 'REJECTED_RECRUITER'
         ? '/recruiter'
         : '/dashboard';
 
@@ -133,9 +137,13 @@ const Navbar = () => {
               <Link to="/login" className="text-gray-600 font-medium hover:text-brand-primary">
                 {t('nav.login')}
               </Link>
-              <Link to="/signup" className="btn-primary">
+              <button
+                type="button"
+                onClick={() => setSignUpModalOpen(true)}
+                className="btn-primary px-7 py-3 text-base font-black shadow-lg shadow-brand-primary/25 ring-2 ring-brand-primary/20 transition hover:shadow-xl hover:ring-brand-primary/30"
+              >
                 {t('nav.signUp')}
-              </Link>
+              </button>
             </div>
           )}
         </div>
@@ -188,13 +196,22 @@ const Navbar = () => {
               <Link to="/login" onClick={() => setIsOpen(false)} className="block text-gray-600 font-medium">
                 {t('nav.login')}
               </Link>
-              <Link to="/signup" onClick={() => setIsOpen(false)} className="block btn-primary text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setSignUpModalOpen(true);
+                }}
+                className="block w-full btn-primary py-3.5 text-center text-base font-black shadow-lg shadow-brand-primary/25"
+              >
                 {t('nav.signUp')}
-              </Link>
+              </button>
             </>
           )}
         </div>
       )}
+
+      <SignUpRoleModal open={signUpModalOpen} onClose={() => setSignUpModalOpen(false)} />
     </nav>
   );
 };

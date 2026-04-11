@@ -21,10 +21,12 @@ import CandidateJobsPage from './pages/candidate/CandidateJobsPage';
 import AdminLayout from './layouts/AdminLayout';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminCompaniesPage from './pages/admin/AdminCompaniesPage';
+import AdminPendingCompaniesPage from './pages/admin/AdminPendingCompaniesPage';
 import AdminJobsPage from './pages/admin/AdminJobsPage';
 import RecruiterLayout from './layouts/RecruiterLayout';
 import RecruiterHomeSwitch from './pages/recruiter/RecruiterHomeSwitch';
 import RecruiterJobDetailPage from './pages/recruiter/RecruiterJobDetailPage';
+import RecruiterAnalyticsPage from './pages/recruiter/RecruiterAnalyticsPage';
 import RecruiterCompanyPage from './pages/recruiter/RecruiterCompanyPage';
 import RecruiterRegisterPage from './pages/recruiter/RecruiterRegisterPage';
 import CandidateOnboardingPage from './pages/candidate/CandidateOnboardingPage';
@@ -32,6 +34,7 @@ import MyAccount from './pages/MyAccount';
 import RedirectToRoleAccount from './components/RedirectToRoleAccount';
 import { useAuth } from './context/AuthContext';
 import type { UserRole } from './types';
+import MessagesPage from './pages/MessagesPage';
 
 const ProtectedRoute = ({
   children,
@@ -62,7 +65,7 @@ const ProtectedRoute = ({
     if (user.role === 'RECRUITER') {
       return <Navigate to="/recruiter" replace />;
     }
-    if (user.role === 'PENDING_RECRUITER') {
+    if (user.role === 'PENDING_RECRUITER' || user.role === 'REJECTED_RECRUITER') {
       return <Navigate to="/recruiter" replace />;
     }
     return <Navigate to="/dashboard" replace />;
@@ -116,6 +119,7 @@ function AppShell() {
             }
           >
             <Route index element={<AdminOverview />} />
+            <Route path="approvals" element={<AdminPendingCompaniesPage />} />
             <Route path="companies" element={<AdminCompaniesPage />} />
             <Route path="jobs" element={<AdminJobsPage />} />
             <Route path="account" element={<MyAccount />} />
@@ -134,18 +138,27 @@ function AppShell() {
             <Route path="applications" element={<CandidateApplicationsPage />} />
             <Route path="cv" element={<CandidateCvPage />} />
             <Route path="jobs" element={<CandidateJobsPage />} />
+            <Route path="messages" element={<MessagesPage />} />
             <Route path="account" element={<MyAccount />} />
           </Route>
 
           <Route
             path="/recruiter"
             element={
-              <ProtectedRoute roles={['RECRUITER', 'PENDING_RECRUITER']}>
+              <ProtectedRoute roles={['RECRUITER', 'PENDING_RECRUITER', 'REJECTED_RECRUITER']}>
                 <RecruiterLayout />
               </ProtectedRoute>
             }
           >
             <Route index element={<RecruiterHomeSwitch />} />
+            <Route
+              path="analytics"
+              element={
+                <ProtectedRoute roles={['RECRUITER']}>
+                  <RecruiterAnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="company" element={<RecruiterCompanyPage />} />
             <Route
               path="jobs/:jobId"
@@ -155,6 +168,7 @@ function AppShell() {
                 </ProtectedRoute>
               }
             />
+            <Route path="messages" element={<MessagesPage />} />
             <Route path="account" element={<MyAccount />} />
           </Route>
 

@@ -25,7 +25,6 @@ const AdminCompaniesPage = () => {
   const [blockingCompanyId, setBlockingCompanyId] = useState<number | null>(null);
   const [approvingCompanyId, setApprovingCompanyId] = useState<number | null>(null);
   const [newCompanyLogo, setNewCompanyLogo] = useState<File | null>(null);
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -90,7 +89,9 @@ const AdminCompaniesPage = () => {
     try {
       setApprovingCompanyId(company.id);
       const nextApproved = !company.is_approved;
-      const updated = await api.patchCompany(company.id, { is_approved: nextApproved });
+      const updated = nextApproved
+        ? await api.approveCompany(company.id)
+        : await api.patchCompany(company.id, { is_approved: false });
       setCompanies((prev) => prev.map((c) => (c.id === company.id ? updated : c)));
     } catch {
       setError('Failed to update approval status.');
@@ -131,7 +132,7 @@ const AdminCompaniesPage = () => {
 
       <div className="bg-white rounded-3xl p-6 border border-gray-100">
         <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <Building2 className="text-brand-primary" /> Companies ({companies.length})
+          <Building2 className="text-brand-primary" /> All companies ({companies.length})
         </h2>
         <div className="space-y-4">
           {companies.map((company) => (
@@ -220,6 +221,12 @@ const AdminCompaniesPage = () => {
                   </span>
                 </div>
               </div>
+              {company.rejection_reason ? (
+                <p className="mt-2 text-xs text-red-700 bg-red-50/80 rounded-lg px-3 py-2 border border-red-100">
+                  <span className="font-bold">Rejection note: </span>
+                  {company.rejection_reason}
+                </p>
+              ) : null}
               <div className="mt-3 flex flex-col gap-2">
                 <button
                   type="button"

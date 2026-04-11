@@ -13,6 +13,7 @@ import {
   Loader2,
   PauseCircle,
   PlayCircle,
+  Plus,
   Search,
   SlidersHorizontal,
   X,
@@ -46,6 +47,11 @@ import { useRecruiterLiveSync } from './useRecruiterLiveSync';
 const APPLICANT_PAGE_SIZE = 7;
 const STAGES: ApplicantStage[] = ['new', 'screening', 'interview', 'offer', 'hired'];
 
+function newKnockoutQuestionId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `kq_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
 export type RecruiterDashboardProps = {
   jobs: Job[];
   setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
@@ -71,6 +77,8 @@ export type RecruiterDashboardProps = {
         | 'salary_max'
         | 'seniority'
         | 'work_mode'
+        | 'knockout_criteria'
+        | 'knockout_questions'
       >
     >,
   ) => Promise<Job>;
@@ -161,6 +169,8 @@ export function RecruiterDashboard({
     salary_max: '',
     seniority: '' as JobSeniority | '',
     work_mode: '' as JobWorkMode | '',
+    knockout_criteria_text: '',
+    knockout_questions_rows: [] as { id: string; question: string }[],
   });
   const [drawerApp, setDrawerApp] = useState<JobApplication | null>(null);
   const [liveMsg, setLiveMsg] = useState('');
@@ -331,6 +341,11 @@ export function RecruiterDashboard({
       salary_max: job.salary_max != null ? String(job.salary_max) : '',
       seniority: ((job.seniority ?? '') as JobSeniority) || '',
       work_mode: ((job.work_mode ?? '') as JobWorkMode) || '',
+      knockout_criteria_text: (job.knockout_criteria ?? []).join('\n'),
+      knockout_questions_rows: (job.knockout_questions ?? []).map((q) => ({
+        id: q.id,
+        question: q.question,
+      })),
     });
   };
 
@@ -344,6 +359,16 @@ export function RecruiterDashboard({
     };
     try {
       setJobActionId(editJob.id);
+      const koLines = editDraft.knockout_criteria_text
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const koQuestions = editDraft.knockout_questions_rows
+        .map((r) => ({
+          id: r.id.trim() || newKnockoutQuestionId(),
+          question: r.question.trim(),
+        }))
+        .filter((r) => r.question.length > 0);
       const updated = await patchJob(editJob.id, {
         title: editDraft.title.trim(),
         description: editDraft.description,
@@ -352,6 +377,8 @@ export function RecruiterDashboard({
         salary_max: parseOptInt(editDraft.salary_max),
         seniority: editDraft.seniority || '',
         work_mode: editDraft.work_mode || '',
+        knockout_criteria: koLines,
+        knockout_questions: koQuestions,
       });
       setJobs((prev) => prev.map((j) => (j.id === updated.id ? { ...j, ...updated } : j)));
       setEditJob(null);
@@ -792,11 +819,22 @@ export function RecruiterDashboard({
                               )}
                             </td>
                             <td className="py-3 px-3 tabular-nums">
-                              <MatchScoreExplainability
-                                score={app.match_score}
-                                matched={app.match_matched_skills}
-                                missing={app.match_missing_skills}
-                              />
+                              <div className="flex flex-col gap-1 items-start">
+                                {app.knockout_failed ? (
+                                  <span
+                                    className="inline-block text-[10px] font-black uppercase tracking-wide text-red-800 bg-red-100 px-2 py-0.5 rounded-md"
+                                    title={(app.knockout_reasons ?? []).join('; ') || undefined}
+                                  >
+                                    {t('recruiterDashboard.knockoutBadge')}
+                                  </span>
+                                ) : null}
+                                <MatchScoreExplainability
+                                  score={app.match_score}
+                                  reason={app.match_reason}
+                                  matched={app.match_matched_skills}
+                                  missing={app.match_missing_skills}
+                                />
+                              </div>
                             </td>
                             <td className="py-3 px-3">
                               {stage === 'rejected' ? (
@@ -892,10 +930,18 @@ export function RecruiterDashboard({
             aria-labelledby="rd-edit-title"
             className="w-full max-w-lg rounded-2xl bg-white shadow-xl border border-gray-200 p-6"
           >
-            <h3 id="rd-edit-title" className="text-lg font-bold text-brand-black mb-4">
+            <h3 id="rd-edit-title" className="text-lg font-bold text-brand-black">
               {t('recruiterDashboard.editJob')}
             </h3>
-            <div className="space-y-3">
+            <p className="text-xs font-black uppercase tracking-wider text-brand-primary mt-2">
+              {t('recruiterDashboard.jobPostingBuilder')}
+            </p>
+            <p className="text-sm text-gray-500 mb-4">{t('recruiterDashboard.jobPostingBuilderHint')}</p>
+            <div className="space-y-4 max-h-[min(70vh,560px)] overflow-y-auto pe-1">
+              <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+                <p className="text-[10px] font-black uppercase text-gray-500">
+                  {t('recruiterDashboard.sectionJobDetails')}
+                </p>
               <label className="block text-sm font-bold text-gray-700">
                 {t('recruiterDashboard.labelTitle')}
                 <input
@@ -982,6 +1028,82 @@ export function RecruiterDashboard({
                   onChange={(e) => setEditDraft((d) => ({ ...d, description: e.target.value }))}
                 />
               </label>
+              </div>
+              <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 space-y-3">
+                <p className="text-[10px] font-black uppercase text-amber-900/80">
+                  {t('recruiterDashboard.sectionKnockoutScreening')}
+                </p>
+              <label className="block text-sm font-bold text-gray-700">
+                {t('recruiterDashboard.knockoutCriteria')}
+                <textarea
+                  className="input-field mt-1 font-normal min-h-[88px]"
+                  placeholder={t('recruiterDashboard.knockoutCriteriaPlaceholder')}
+                  value={editDraft.knockout_criteria_text}
+                  onChange={(e) =>
+                    setEditDraft((d) => ({ ...d, knockout_criteria_text: e.target.value }))
+                  }
+                />
+                <span className="block text-xs font-normal text-gray-500 mt-1">
+                  {t('recruiterDashboard.knockoutCriteriaHint')}
+                </span>
+              </label>
+              <div>
+                <span className="block text-sm font-bold text-gray-700">
+                  {t('recruiterDashboard.knockoutQuestions')}
+                </span>
+                <p className="text-xs font-normal text-gray-500 mt-1 mb-2">
+                  {t('recruiterDashboard.knockoutQuestionsHint')}
+                </p>
+                <ul className="space-y-2">
+                  {editDraft.knockout_questions_rows.map((row) => (
+                    <li key={row.id} className="flex gap-2 items-start">
+                      <input
+                        className="input-field flex-1 font-normal text-sm"
+                        placeholder={t('recruiterDashboard.knockoutQuestionPlaceholder')}
+                        value={row.question}
+                        onChange={(e) =>
+                          setEditDraft((d) => ({
+                            ...d,
+                            knockout_questions_rows: d.knockout_questions_rows.map((r) =>
+                              r.id === row.id ? { ...r, question: e.target.value } : r,
+                            ),
+                          }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-700 shrink-0"
+                        aria-label={t('recruiterDashboard.removeKnockoutQuestion')}
+                        onClick={() =>
+                          setEditDraft((d) => ({
+                            ...d,
+                            knockout_questions_rows: d.knockout_questions_rows.filter((r) => r.id !== row.id),
+                          }))
+                        }
+                      >
+                        <X size={18} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-brand-primary hover:underline"
+                  onClick={() =>
+                    setEditDraft((d) => ({
+                      ...d,
+                      knockout_questions_rows: [
+                        ...d.knockout_questions_rows,
+                        { id: newKnockoutQuestionId(), question: '' },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus size={16} aria-hidden />
+                  {t('recruiterDashboard.addKnockoutQuestion')}
+                </button>
+              </div>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button type="button" className="btn-secondary text-sm py-2 px-4" onClick={() => setEditJob(null)}>
@@ -1038,9 +1160,17 @@ export function RecruiterDashboard({
                 <div>
                   <dt className="text-[10px] font-black uppercase text-gray-400">{t('recruiterDashboard.screeningScore')}</dt>
                   <dd className="text-gray-800 tabular-nums">
+                    {drawerApp.knockout_failed ? (
+                      <p className="mb-2">
+                        <span className="inline-block text-[10px] font-black uppercase tracking-wide text-red-800 bg-red-100 px-2 py-0.5 rounded-md">
+                          {t('recruiterDashboard.knockoutBadge')}
+                        </span>
+                      </p>
+                    ) : null}
                     {drawerApp.match_score != null ? (
                       <MatchScoreExplainability
                         score={drawerApp.match_score}
+                        reason={drawerApp.match_reason}
                         matched={drawerApp.match_matched_skills}
                         missing={drawerApp.match_missing_skills}
                       />
@@ -1049,6 +1179,20 @@ export function RecruiterDashboard({
                     )}
                   </dd>
                 </div>
+                {drawerApp.knockout_failed && (drawerApp.knockout_reasons?.length ?? 0) > 0 ? (
+                  <div>
+                    <dt className="text-[10px] font-black uppercase text-gray-400">
+                      {t('recruiterDashboard.knockoutReasons')}
+                    </dt>
+                    <dd>
+                      <ul className="text-sm text-red-900 space-y-0.5 list-disc list-inside">
+                        {(drawerApp.knockout_reasons ?? []).map((r, i) => (
+                          <li key={`ko-${i}-${r}`}>{r}</li>
+                        ))}
+                      </ul>
+                    </dd>
+                  </div>
+                ) : null}
                 {(drawerApp.match_matched_skills?.length || drawerApp.match_missing_skills?.length) ? (
                   <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3">
                     <p className="text-[10px] font-black uppercase text-gray-400 mb-2">{t('recruiterDashboard.skillsExplain')}</p>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import { Search, Brain, Globe, ArrowRight } from 'lucide-react';
+import { Search, Brain, Globe, ArrowRight, Users, Kanban, BadgeCheck, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Hero = () => {
@@ -120,6 +120,69 @@ const Home = () => {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="py-24 bg-slate-50 border-y border-slate-100">
+        <div className="container mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="text-center max-w-3xl mx-auto mb-14"
+          >
+            <p className="text-sm font-bold uppercase tracking-widest text-brand-primary mb-3">{t('home.employersEyebrow')}</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-brand-black mb-4">{t('home.employersTitle')}</h2>
+            <p className="text-gray-600 text-lg leading-relaxed">{t('home.employersSubtitle')}</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 mb-14">
+            {(
+              [
+                { id: 1 as const, icon: Users },
+                { id: 2 as const, icon: Kanban },
+                { id: 3 as const, icon: Globe },
+                { id: 4 as const, icon: BadgeCheck },
+              ] as const
+            ).map((row, i) => (
+              <motion.div
+                key={row.id}
+                initial={{ opacity: 0, y: 28 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.55, delay: i * 0.08 }}
+                className="flex gap-5 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
+              >
+                <div className="shrink-0 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary">
+                  <row.icon size={28} aria-hidden />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-brand-black mb-2">
+                    {t(`home.employersBenefit${row.id}Title` as const)}
+                  </h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">{t(`home.employersBenefit${row.id}Desc` as const)}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="flex justify-center"
+          >
+            <Link
+              to="/recruiter/register"
+              className="btn-primary text-lg px-10 py-4 inline-flex items-center gap-3 shadow-lg shadow-brand-primary/20 font-bold"
+            >
+              <Building2 size={22} aria-hidden />
+              {t('home.registerCompany')}
+              <ArrowRight size={20} aria-hidden />
+            </Link>
+          </motion.div>
         </div>
       </section>
 

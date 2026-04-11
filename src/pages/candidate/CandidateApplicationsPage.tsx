@@ -173,11 +173,19 @@ const CandidateApplicationsPage = () => {
                         </span>
                       </td>
                       <td className="py-3 pe-4">
-                        <MatchScoreExplainability
-                          score={app.match_score}
-                          matched={app.match_matched_skills}
-                          missing={app.match_missing_skills}
-                        />
+                        <div className="flex flex-col gap-1 items-start">
+                          {app.knockout_failed ? (
+                            <span className="text-[10px] font-black uppercase tracking-wide text-red-800 bg-red-100 px-2 py-0.5 rounded-md">
+                              {t('candidateApplications.notQualified')}
+                            </span>
+                          ) : null}
+                          <MatchScoreExplainability
+                            score={app.match_score}
+                            reason={app.match_reason}
+                            matched={app.match_matched_skills}
+                            missing={app.match_missing_skills}
+                          />
+                        </div>
                       </td>
                       <td className="py-3">
                         <div className="flex flex-col gap-2 items-start">

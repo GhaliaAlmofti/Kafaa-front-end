@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Building2, Briefcase } from 'lucide-react';
+import { LayoutDashboard, ClipboardCheck, Building2, Briefcase } from 'lucide-react';
 import SidebarBrand from '../components/SidebarBrand';
 import SidebarUserMenu from '../components/SidebarUserMenu';
 
@@ -17,6 +17,7 @@ const AdminLayout = () => {
   const navItems = useMemo(
     (): { to: string; end?: boolean; label: string; icon: React.ReactNode }[] => [
       { to: '/admin', end: true, label: t('layouts.adminNavOverview'), icon: <LayoutDashboard size={18} /> },
+      { to: '/admin/approvals', label: t('layouts.adminNavApprovals'), icon: <ClipboardCheck size={18} /> },
       { to: '/admin/companies', label: t('layouts.adminNavCompanies'), icon: <Building2 size={18} /> },
       { to: '/admin/jobs', label: t('layouts.adminNavJobs'), icon: <Briefcase size={18} /> },
     ],

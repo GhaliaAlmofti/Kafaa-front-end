@@ -14,7 +14,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { api } from '../../services/api';
-import type { JobApplication, GrowthReport } from '../../types';
+import type { JobApplication, GrowthReport, JobRecruiterAnalytics } from '../../types';
 import type { RecruiterLayoutContext } from '../../layouts/RecruiterLayout';
 import PageLayout from '../../components/PageLayout';
 import { GrowthReportModal } from '../../components/GrowthReportModal';
@@ -45,6 +45,8 @@ const RecruiterJobDetailPage = () => {
     loading: boolean;
     error: string;
   } | null>(null);
+  const [analytics, setAnalytics] = useState<JobRecruiterAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const displayError = error || layoutError;
 
@@ -66,11 +68,36 @@ const RecruiterJobDetailPage = () => {
     void loadApplications(id);
   }, [id, layoutLoading, loadApplications]);
 
+  useEffect(() => {
+    if (layoutLoading || !Number.isFinite(id) || !job) return;
+    let cancelled = false;
+    setAnalyticsLoading(true);
+    void api
+      .getJobRecruiterAnalytics(id)
+      .then((data) => {
+        if (!cancelled) setAnalytics(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAnalytics(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAnalyticsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, job, layoutLoading]);
+
   const scoredApps = useMemo(() => {
     return [...jobApplications]
       .filter((a) => a.match_score != null)
       .sort((a, b) => (b.match_score ?? 0) - (a.match_score ?? 0));
   }, [jobApplications]);
+
+  /** Top 5 by match score among candidates who passed mandatory screening (not knockout_failed). */
+  const topFiveQualified = useMemo(() => {
+    return scoredApps.filter((a) => !a.knockout_failed).slice(0, 5);
+  }, [scoredApps]);
 
   const hasAnyScore = scoredApps.length > 0;
 
@@ -180,6 +207,17 @@ const RecruiterJobDetailPage = () => {
               </span>
               <span className="text-xs text-gray-400">{job.job_type}</span>
             </div>
+            {analyticsLoading ? (
+              <p className="text-xs text-gray-400 mt-2">Loading analytics…</p>
+            ) : analytics ? (
+              <div className="flex flex-wrap gap-4 text-xs font-semibold text-gray-600 mt-3">
+                <span title="Distinct visitors who opened this job (candidate views)">
+                  Job views: {analytics.unique_viewers}
+                </span>
+                <span title="Applications submitted">Apply clicks: {analytics.apply_count}</span>
+                <span title="Currently shortlisted (Accepted)">Shortlisted: {analytics.shortlisted_count}</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -250,11 +288,22 @@ const RecruiterJobDetailPage = () => {
                           )}
                         </td>
                         <td className="py-3 pr-4">
-                          <MatchScoreExplainability
-                            score={app.match_score}
-                            matched={app.match_matched_skills}
-                            missing={app.match_missing_skills}
-                          />
+                          <div className="flex flex-col gap-1 items-start">
+                            {app.knockout_failed ? (
+                              <span
+                                className="text-[10px] font-black uppercase tracking-wide text-red-800 bg-red-100 px-2 py-0.5 rounded-md"
+                                title={(app.knockout_reasons ?? []).join('; ') || undefined}
+                              >
+                                {t('recruiterJobDetail.notQualified')}
+                              </span>
+                            ) : null}
+                            <MatchScoreExplainability
+                              score={app.match_score}
+                              reason={app.match_reason}
+                              matched={app.match_matched_skills}
+                              missing={app.match_missing_skills}
+                            />
+                          </div>
                         </td>
                         <td className="py-3 pr-4 capitalize text-gray-600">{app.status}</td>
                         <td className="py-3">
@@ -291,31 +340,49 @@ const RecruiterJobDetailPage = () => {
         )}
 
         <div className="p-6 bg-gray-50/30">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-            Match scores (by apply order analysis)
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+            {t('recruiterJobDetail.topFiveTitle')}
           </p>
+          <p className="text-xs text-gray-500 mb-4">{t('recruiterJobDetail.topFiveSubtitle')}</p>
           {!hasAnyScore ? (
             <div className="text-center py-8 text-gray-400 italic text-sm">
-              Scores appear when candidates with analyzed CVs apply. They update automatically on
-              each new application.
+              {t('recruiterJobDetail.scoresEmpty')}
+            </div>
+          ) : topFiveQualified.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              {t('recruiterJobDetail.topFiveNoneQualified')}
             </div>
           ) : (
             <div className="grid gap-4">
               <div className="grid grid-cols-12 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                <div className="col-span-5">Candidate</div>
-                <div className="col-span-2 text-center">Score</div>
-                <div className="col-span-4">Reasoning</div>
-                <div className="col-span-1 text-right">CV</div>
+                <div className="col-span-1 text-center">{t('recruiterJobDetail.gridRank')}</div>
+                <div className="col-span-4">{t('recruiterJobDetail.gridCandidate')}</div>
+                <div className="col-span-2 text-center">{t('recruiterJobDetail.gridScore')}</div>
+                <div className="col-span-4">{t('recruiterJobDetail.gridReasoning')}</div>
+                <div className="col-span-1 text-right">{t('recruiterJobDetail.gridCv')}</div>
               </div>
 
-              {scoredApps.map((app) => (
+              {topFiveQualified.map((app, rankIdx) => (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   key={app.id}
                   className="grid grid-cols-12 items-center bg-white p-4 rounded-2xl border border-gray-100 transition-colors hover:border-gray-300 gap-2"
                 >
-                  <div className="col-span-5 flex items-center gap-3 min-w-0">
+                  <div className="col-span-1 flex flex-col items-center justify-center gap-1 min-w-0">
+                    <span className="font-black text-brand-primary tabular-nums text-sm">
+                      #{rankIdx + 1}
+                    </span>
+                    <MatchScoreExplainability
+                      trigger="icon"
+                      score={app.match_score}
+                      reason={app.match_reason}
+                      matched={app.match_matched_skills}
+                      missing={app.match_missing_skills}
+                    />
+                  </div>
+
+                  <div className="col-span-4 flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 bg-brand-black rounded-full flex items-center justify-center text-white font-bold shrink-0">
                       {app.applicant_name?.charAt(0) || 'C'}
                     </div>
@@ -331,7 +398,7 @@ const RecruiterJobDetailPage = () => {
 
                   <div className="col-span-2 text-center">
                     <div
-                      className={`inline-block px-3 py-1 rounded-full font-black text-sm ${
+                      className={`inline-block px-3 py-1 rounded-full font-black text-sm tabular-nums ${
                         (app.match_score ?? 0) >= 80
                           ? 'bg-brand-primary-soft text-brand-primary-mid'
                           : (app.match_score ?? 0) >= 50
@@ -339,17 +406,7 @@ const RecruiterJobDetailPage = () => {
                             : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {app.match_score != null ? (
-                        <MatchScoreExplainability
-                          score={app.match_score}
-                          matched={app.match_matched_skills}
-                          missing={app.match_missing_skills}
-                          variant="pill"
-                          className="text-inherit"
-                        />
-                      ) : (
-                        'N/A'
-                      )}
+                      {app.match_score != null ? t('matchScore.scorePercent', { score: app.match_score }) : 'N/A'}
                     </div>
                   </div>
 

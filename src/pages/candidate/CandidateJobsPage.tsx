@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -17,19 +17,36 @@ import {
   Banknote,
 } from 'lucide-react';
 import { formatPostedDate } from '../../utils/formatPostedDate';
-import {
-  jobMatchesCityFilter,
-  jobMatchesSalaryFilter,
-  jobMatchesSeniorityFilter,
-  jobMatchesWorkModeFilter,
-} from '../../utils/jobFilters';
-import { api } from '../../services/api';
+import { api, getOrCreateAnonymousVisitorId, type JobListQueryParams } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import PageLayout from '../../components/PageLayout';
 import { JobSearchFilters } from '../../components/candidate/JobSearchFilters';
 import type { CV, Job, MyApplication } from '../../types';
 
+function buildCandidateJobListParams(
+  debouncedSearch: string,
+  jobTypeFilter: string,
+  cityFilter: string,
+  salaryMin: string,
+  salaryMax: string,
+  seniority: string,
+  workMode: string,
+): JobListQueryParams {
+  const p: JobListQueryParams = {};
+  const s = debouncedSearch.trim();
+  if (s) p.search = s;
+  if (jobTypeFilter) p.job_type = jobTypeFilter;
+  if (cityFilter.trim()) p.location = cityFilter.trim();
+  if (salaryMin.trim()) p.salary_min = salaryMin.trim();
+  if (salaryMax.trim()) p.salary_max = salaryMax.trim();
+  if (seniority) p.seniority = seniority;
+  if (workMode) p.work_mode = workMode;
+  return p;
+}
+
 const CandidateJobsPage = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [myApps, setMyApps] = useState<MyApplication[]>([]);
   const [cvs, setCvs] = useState<Pick<CV, 'id' | 'is_parsed' | 'display_name'>[]>([]);
@@ -38,7 +55,9 @@ const CandidateJobsPage = () => {
   const [modalCvId, setModalCvId] = useState<number | null>(null);
   const [applySubmitting, setApplySubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [knockoutAnswers, setKnockoutAnswers] = useState<Record<string, 'yes' | 'no'>>({});
   const [jobSearch, setJobSearch] = useState('');
+  const [debouncedJobSearch, setDebouncedJobSearch] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [salaryMinFilter, setSalaryMinFilter] = useState('');
@@ -46,19 +65,39 @@ const CandidateJobsPage = () => {
   const [seniorityFilter, setSeniorityFilter] = useState('');
   const [workModeFilter, setWorkModeFilter] = useState('');
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [citySourceJobs, setCitySourceJobs] = useState<Job[]>([]);
+  const skipFilterRefetch = useRef(true);
+  const impressionSentRef = useRef<Set<number>>(new Set());
 
-  const load = useCallback(async () => {
+  const trackJobImpression = useCallback(
+    (jobId: number) => {
+      if (impressionSentRef.current.has(jobId)) return;
+      impressionSentRef.current.add(jobId);
+      const anonVisitor = user ? undefined : getOrCreateAnonymousVisitorId();
+      void api.recordJobImpression(jobId, anonVisitor);
+    },
+    [user],
+  );
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedJobSearch(jobSearch), 400);
+    return () => window.clearTimeout(t);
+  }, [jobSearch]);
+
+  const loadBootstrap = useCallback(async () => {
     try {
       setLoading(true);
       const [jobsData, appsData, cvData] = await Promise.all([
-        api.listJobs(),
+        api.listJobs({}),
         api.listMyApplications(),
         api.getUserCV(),
       ]);
+      setCitySourceJobs(jobsData);
       setJobs(jobsData);
       setMyApps(appsData);
       setCvs(cvData.map((c) => ({ id: c.id, is_parsed: c.is_parsed, display_name: c.display_name })));
     } catch {
+      setCitySourceJobs([]);
       setJobs([]);
     } finally {
       setLoading(false);
@@ -66,19 +105,58 @@ const CandidateJobsPage = () => {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    void loadBootstrap();
+  }, [loadBootstrap]);
+
+  useEffect(() => {
+    if (loading) return;
+    const params = buildCandidateJobListParams(
+      debouncedJobSearch,
+      jobTypeFilter,
+      cityFilter,
+      salaryMinFilter,
+      salaryMaxFilter,
+      seniorityFilter,
+      workModeFilter,
+    );
+    const hasFilters = Object.keys(params).length > 0;
+    if (skipFilterRefetch.current) {
+      skipFilterRefetch.current = false;
+      if (!hasFilters) return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await api.listJobs(params);
+        if (!cancelled) setJobs(data);
+      } catch {
+        if (!cancelled) setJobs([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    loading,
+    debouncedJobSearch,
+    jobTypeFilter,
+    cityFilter,
+    salaryMinFilter,
+    salaryMaxFilter,
+    seniorityFilter,
+    workModeFilter,
+  ]);
 
   const appliedJobIds = useMemo(() => new Set(myApps.map((a) => a.job)), [myApps]);
 
   const cityOptions = useMemo(() => {
     const set = new Set<string>();
-    jobs.forEach((j) => {
+    citySourceJobs.forEach((j) => {
       const loc = j.location?.trim();
       if (loc) set.add(loc);
     });
     return [...set].sort((a, b) => a.localeCompare(b));
-  }, [jobs]);
+  }, [citySourceJobs]);
 
   const sidebarActiveCount = useMemo(() => {
     let n = 0;
@@ -88,32 +166,6 @@ const CandidateJobsPage = () => {
     if (workModeFilter) n += 1;
     return n;
   }, [cityFilter, salaryMinFilter, salaryMaxFilter, seniorityFilter, workModeFilter]);
-
-  const filteredJobs = useMemo(() => {
-    const q = jobSearch.trim().toLowerCase();
-    return jobs.filter((job) => {
-      const matchQ =
-        !q ||
-        job.title.toLowerCase().includes(q) ||
-        job.description.toLowerCase().includes(q) ||
-        job.location.toLowerCase().includes(q);
-      const matchT = !jobTypeFilter || job.job_type === jobTypeFilter;
-      const matchCity = jobMatchesCityFilter(job, cityFilter);
-      const matchSalary = jobMatchesSalaryFilter(job, salaryMinFilter, salaryMaxFilter);
-      const matchSeniority = jobMatchesSeniorityFilter(job, seniorityFilter);
-      const matchWork = jobMatchesWorkModeFilter(job, workModeFilter);
-      return matchQ && matchT && matchCity && matchSalary && matchSeniority && matchWork;
-    });
-  }, [
-    jobs,
-    jobSearch,
-    jobTypeFilter,
-    cityFilter,
-    salaryMinFilter,
-    salaryMaxFilter,
-    seniorityFilter,
-    workModeFilter,
-  ]);
 
   const clearSidebarFilters = () => {
     setCityFilter('');
@@ -130,7 +182,9 @@ const CandidateJobsPage = () => {
   };
 
   const openEasyApplyModal = (job: Job) => {
+    trackJobImpression(job.id);
     setModalError('');
+    setKnockoutAnswers({});
     setApplyModalJob(job);
     const preferred = cvs.find((c) => c.is_parsed)?.id ?? cvs[0]?.id ?? null;
     setModalCvId(preferred);
@@ -146,9 +200,24 @@ const CandidateJobsPage = () => {
   const submitEasyApply = async () => {
     if (!applyModalJob || modalCvId == null) return;
     setModalError('');
+    const kqs = applyModalJob.knockout_questions ?? [];
+    for (const q of kqs) {
+      const a = knockoutAnswers[q.id];
+      if (a !== 'yes' && a !== 'no') {
+        setModalError(t('candidateJobs.knockoutAnswerAll'));
+        return;
+      }
+    }
     try {
       setApplySubmitting(true);
-      await api.applyJob({ job: applyModalJob.id, cv: modalCvId });
+      await api.applyJob({
+        job: applyModalJob.id,
+        cv: modalCvId,
+        knockout_answers:
+          kqs.length > 0
+            ? Object.fromEntries(kqs.map((q) => [q.id, knockoutAnswers[q.id]!]))
+            : undefined,
+      });
       setMyApps(await api.listMyApplications());
       setApplyModalJob(null);
       setModalCvId(null);
@@ -220,7 +289,7 @@ const CandidateJobsPage = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-        {filteredJobs.map((job) => {
+        {jobs.map((job) => {
           const applied = appliedJobIds.has(job.id);
           const expanded = expandedJobId === job.id;
           return (
@@ -245,6 +314,11 @@ const CandidateJobsPage = () => {
                       </p>
                     )}
                     <h3 className="text-lg font-bold text-brand-black">{job.title}</h3>
+                    {job.title_ar?.trim() ? (
+                      <p className="text-sm font-semibold text-gray-600 mt-0.5" dir="rtl">
+                        {job.title_ar.trim()}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 {applied && (
@@ -301,7 +375,11 @@ const CandidateJobsPage = () => {
               </p>
               <button
                 type="button"
-                onClick={() => setExpandedJobId(expanded ? null : job.id)}
+                onClick={() => {
+                  const nextExpanded = expanded ? null : job.id;
+                  setExpandedJobId(nextExpanded);
+                  if (nextExpanded !== null) trackJobImpression(job.id);
+                }}
                 className="mt-2 text-xs font-bold text-brand-primary hover:underline self-start flex items-center gap-1"
               >
                 {expanded ? (
@@ -335,7 +413,7 @@ const CandidateJobsPage = () => {
           );
         })}
         </div>
-        {filteredJobs.length === 0 ? (
+        {jobs.length === 0 ? (
           <p className="text-gray-400 text-center py-12 border border-dashed border-gray-200 rounded-2xl text-sm">
             {t('candidateJobs.noMatch')}{' '}
             <button type="button" className="text-brand-primary font-semibold" onClick={clearAllFilters}>
@@ -441,6 +519,49 @@ const CandidateJobsPage = () => {
                 <p className="mt-3 text-xs text-gray-500">
                   {t('candidateJobs.analyzedHint')}
                 </p>
+                {applyModalJob.knockout_questions && applyModalJob.knockout_questions.length > 0 ? (
+                  <div className="mt-5 space-y-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                      {t('candidateJobs.mandatoryScreening')}
+                    </p>
+                    {applyModalJob.knockout_questions.map((q) => (
+                      <fieldset
+                        key={q.id}
+                        className="rounded-xl border border-gray-100 bg-gray-50/50 p-3"
+                      >
+                        <legend className="text-sm font-semibold text-brand-black px-1">
+                          {q.question}
+                        </legend>
+                        <div className="flex flex-wrap gap-4 mt-2">
+                          <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              className="accent-brand-primary"
+                              name={`ko-${q.id}`}
+                              checked={knockoutAnswers[q.id] === 'yes'}
+                              onChange={() =>
+                                setKnockoutAnswers((prev) => ({ ...prev, [q.id]: 'yes' }))
+                              }
+                            />
+                            {t('candidateJobs.yes')}
+                          </label>
+                          <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              className="accent-brand-primary"
+                              name={`ko-${q.id}`}
+                              checked={knockoutAnswers[q.id] === 'no'}
+                              onChange={() =>
+                                setKnockoutAnswers((prev) => ({ ...prev, [q.id]: 'no' }))
+                              }
+                            />
+                            {t('candidateJobs.no')}
+                          </label>
+                        </div>
+                      </fieldset>
+                    ))}
+                  </div>
+                ) : null}
               </>
             )}
 

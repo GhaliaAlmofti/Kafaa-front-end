@@ -33,11 +33,14 @@ const Jobs = () => {
   }, []);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const raw = search.trim();
+    const q = raw.toLowerCase();
     return jobs.filter((job) => {
+      const ar = (job.title_ar ?? '').trim();
       const matchQ =
-        !q ||
+        !raw ||
         job.title.toLowerCase().includes(q) ||
+        (ar && ar.includes(raw)) ||
         job.description.toLowerCase().includes(q) ||
         job.location.toLowerCase().includes(q);
       const matchT = !typeFilter || job.job_type === typeFilter;

@@ -9,6 +9,7 @@ function apiRoleToUserRole(role: MeResponse['role']): UserRole {
   if (u === 'ADMIN') return 'ADMIN';
   if (u === 'RECRUITER') return 'RECRUITER';
   if (u === 'PENDING_RECRUITER') return 'PENDING_RECRUITER';
+  if (u === 'REJECTED_RECRUITER') return 'REJECTED_RECRUITER';
   return 'CANDIDATE';
 }
 
@@ -19,6 +20,7 @@ export function meResponseToUser(data: MeResponse): User {
     phone_number: data.phone_number || '',
     is_verified: data.is_verified,
     role: apiRoleToUserRole(data.role),
+    userStatus: data.user_status,
     avatar_url: data.avatar ?? null,
     profiles: data.profiles,
   };
@@ -39,7 +41,7 @@ export async function navigateAfterAuth(navigate: NavigateFunction, user: User) 
     navigate('/recruiter');
     return;
   }
-  if (user.role === 'PENDING_RECRUITER') {
+  if (user.role === 'PENDING_RECRUITER' || user.role === 'REJECTED_RECRUITER') {
     navigate('/recruiter');
     return;
   }
